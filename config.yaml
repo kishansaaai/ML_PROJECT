@@ -8,7 +8,7 @@ data:
   min_word_frequency: 2
   max_tokens: 40
   feature_dir: embeddings/vgg19
-  image_batch_size: 1
+  image_batch_size: 10
 model:
   image_feature_dim: 4096
   word_dim: 300

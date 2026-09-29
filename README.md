@@ -38,6 +38,8 @@ python -m src.train --variant gru_glove
 python -m src.train --variant lstm_glove
 ```
 
+On a supported NVIDIA GPU, install the matching CUDA builds of PyTorch and torchvision using the [official PyTorch selector](https://docs.pytorch.org/get-started/locally/) before the full run. Check `python -c "import torch; print(torch.cuda.is_available())"`; `True` means this project will use the GPU. If feature extraction is interrupted, run `python -m src.features --split train --resume` (or `val`/`test`). If neural training is interrupted, run `python -m src.train --variant gru --resume` with the applicable variant. Progress is saved after each completed epoch.
+
 If the files have already been downloaded, put `dataset_coco.json` under `data/coco/`, COCO `train2014/` and `val2014/` there, and `glove.6B.300d.txt` under `data/glove/`. Then run `python -m src.prepare_data` without download flags. `src.features` downloads the pretrained torchvision VGG-19 weights automatically on its first run.
 
 For a local COCO subset without the full image archives, `python -m src.prepare_data --download-subset 20 --download-glove` downloads 20 real COCO images from each split and builds matching manifests. This is for pipeline checks only. Regenerate full manifests before full experiments.
