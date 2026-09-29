@@ -4,7 +4,7 @@ This repository implements the caption-to-image retrieval project in the supplie
 
 ## Project status
 
-No existing implementation was supplied with the two project PDFs, so this repository was built from the paper's specification. The code and synthetic smoke fixture are separate from actual COCO experiments. No COCO test metrics are claimed until the dataset, pretrained weights, and full training runs have been completed.
+No existing implementation was supplied with the two project PDFs, so this repository was built from the paper's specification. A 20-image-per-split COCO run verifies the pipeline with real images, captions, pretrained VGG-19, and GloVe; its measured results are in [VERIFICATION.md](VERIFICATION.md). Full COCO training and the paper's 1,000-image test gallery have not been run, so the subset scores are not final project results.
 
 ## Data and preprocessing
 

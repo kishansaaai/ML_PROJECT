@@ -21,6 +21,8 @@ class RetrievalModel(nn.Module):
             raise ValueError("recurrent_type must be 'gru' or 'lstm'")
         self.recurrent_type = recurrent_type
         self.image_projection = nn.Linear(image_feature_dim, embedding_dim, bias=False)
+        # Start the projected image vector near the recurrent state scale.
+        nn.init.normal_(self.image_projection.weight, std=(image_feature_dim * embedding_dim) ** -0.5)
         self.word_embeddings = nn.Embedding(vocab_size, word_dim, padding_idx=0)
         if glove_matrix is not None:
             if glove_matrix.shape != (vocab_size, word_dim):
