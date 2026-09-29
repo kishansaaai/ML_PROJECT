@@ -1,0 +1,24 @@
+seed: 42
+data:
+  root: data/coco
+  karpathy_json: data/coco/dataset_coco.json
+  manifest_dir: data/manifests
+  vocab: data/vocab.json
+  glove: data/glove/glove.6B.300d.txt
+  min_word_frequency: 2
+  max_tokens: 40
+  feature_dir: embeddings/vgg19
+  image_batch_size: 1
+model:
+  image_feature_dim: 4096
+  word_dim: 300
+  embedding_dim: 1024
+training:
+  batch_size: 128
+  epochs: 50
+  learning_rate: 0.05
+  margin: 0.1
+  num_workers: 0
+  patience: 7
+  eval_max_images: 1000
+  checkpoint_dir: checkpoints
