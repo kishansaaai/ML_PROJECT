@@ -40,7 +40,9 @@ def neural_embeddings(
         for start in range(0, image_count, batch_size):
             features = torch.from_numpy(np.array(dataset.features[start:start + batch_size], copy=True)).to(device)
             images.append(model.encode_images(features).cpu())
-        pairs = [(image_index, caption) for image_index, caption in dataset.pairs if image_index < image_count]
+        # Match the paper's one held-out caption per image protocol.
+        pairs = [(index, image["captions"][0])
+                 for index, image in enumerate(dataset.images[:image_count])]
         captions = []
         for start in range(0, len(pairs), batch_size):
             batch = pairs[start:start + batch_size]
@@ -111,7 +113,11 @@ def evaluate_method(
         raise ValueError("Evaluation needs at least two images")
     if method.startswith("baseline"):
         images = torch.from_numpy(np.array(dataset.features[:image_count], copy=True))
-        pairs = [(i, caption) for i, caption in dataset.pairs if i < image_count]
+        if method == "baseline_weighted":
+            pairs = [(i, caption) for i, caption in dataset.pairs if i < image_count]
+        else:
+            pairs = [(i, image["captions"][0])
+                     for i, image in enumerate(dataset.images[:image_count])]
         targets = [i for i, _ in pairs]
         captions = [text for _, text in pairs]
         features = mean_word_vectors(captions, vectors, vocab, dataset.max_tokens)

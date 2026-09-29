@@ -7,7 +7,7 @@ This run verifies execution with real COCO 2014 images and captions. It is **not
 - Image representation: ImageNet-pretrained VGG-19 `fc7`, ten crops averaged, 4096 dimensions
 - Text representation: Stanford GloVe 6B 300-dimensional vectors for baseline and pretrained neural variants; 133 of 135 vocabulary entries found. The two unmatched entries are the special tokens.
 - Neural training: up to 30 epochs, batch size 128, Adam, learning rate 0.0001 for this tiny subset; validation-based best checkpoint and early stopping
-- Test gallery: 20 images. Normal methods use 100 caption queries. Baseline + Weight pools five held-out captions into 20 queries.
+- Test gallery: 20 images. This earlier pipeline check used all five captions as separate queries (100 queries) for normal methods. The final paper-protocol evaluation now selects one held-out caption per image (20 queries in this small gallery); Baseline + Weight pools all five into 20 queries. The scores below are from the earlier check and are not final project results.
 
 Verification training commands (after downloading the subset and extracting features):
 

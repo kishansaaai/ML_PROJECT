@@ -96,14 +96,18 @@ def run_smoke(vgg: bool, pretrained_vgg: bool) -> None:
         baseline_path = fit_baseline(cfg, root / "checkpoints/baseline.npz")
         baseline_metrics = evaluate_method(cfg, "test", "baseline", baseline_path, 3)
         weighted = evaluate_method(cfg, "test", "baseline_weighted", baseline_path, 3)
-        assert baseline_metrics["queries"] == 15 and weighted["queries"] == 3
+        assert baseline_metrics["queries"] == 3 and weighted["queries"] == 3
         assert len(retrieve(cfg, "baseline", baseline_path, "red dog", max_images=3)) == 3
         for variant in ["gru", "gru_glove", "lstm_glove"]:
             checkpoint = train(cfg, variant, epochs=1, batch_size=6)
             loaded, _, _ = load_neural_checkpoint(checkpoint, torch.device("cpu"))
             assert isinstance(loaded, RetrievalModel)
             metrics = evaluate_method(cfg, "test", variant, checkpoint, 3)
-            assert metrics["queries"] == 15
+            assert metrics["queries"] == 3
+            if variant == "gru":
+                train(cfg, variant, epochs=2, batch_size=6, learning_rate=0.0002, resume=True)
+                resumed = torch.load(root / "checkpoints/gru_last.pt", map_location="cpu", weights_only=False)
+                assert resumed["optimizer"]["param_groups"][0]["lr"] == 0.0002
             assert len(retrieve(cfg, variant, checkpoint, "blue train", max_images=3)) == 3
         if vgg:
             from src.image_encoder import VGG19FC7, ten_crop_transform

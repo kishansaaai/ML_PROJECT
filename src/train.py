@@ -66,7 +66,10 @@ def train(cfg: dict, variant: str, epochs: int | None = None, batch_size: int | 
         len(vocab), cfg["model"]["image_feature_dim"], cfg["model"]["word_dim"],
         cfg["model"]["embedding_dim"], recurrent_type, glove,
     ).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate or cfg["training"]["learning_rate"])
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=learning_rate if learning_rate is not None else cfg["training"]["learning_rate"],
+    )
     checkpoint_dir = project_path(cfg, cfg["training"]["checkpoint_dir"])
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_recall = -1.0
@@ -85,6 +88,9 @@ def train(cfg: dict, variant: str, epochs: int | None = None, batch_size: int | 
             raise ValueError("Training checkpoint does not match the selected variant and vocabulary")
         model.load_state_dict(previous["model"])
         optimizer.load_state_dict(previous["optimizer"])
+        if learning_rate is not None:
+            for group in optimizer.param_groups:
+                group["lr"] = learning_rate
         best_recall = previous["best_recall"]
         best_val_loss = previous["best_val_loss"]
         stale = previous["stale"]

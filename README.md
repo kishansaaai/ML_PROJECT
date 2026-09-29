@@ -46,7 +46,7 @@ For a local COCO subset without the full image archives, `python -m src.prepare_
 
 ## Evaluation and retrieval
 
-Evaluate on 1,000 test images and their captions. Metrics are Recall@1, Recall@10, and mean rank; percentages are saved as JSON. The first 1,000 images in the test manifest define the reproducible gallery.
+Evaluate on the first 1,000 test images with one held-out caption per image, as in the paper's normal-method comparison. Metrics are Recall@1, Recall@10, and mean rank; percentages are saved as JSON. The first 1,000 images in the test manifest define the reproducible gallery.
 
 ```powershell
 python -m src.evaluate --method baseline
