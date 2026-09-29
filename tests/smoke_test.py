@@ -16,6 +16,7 @@ import torch
 
 from src.baseline import fit_baseline
 from src.config import set_seed
+from src.dataset import CaptionFeatureDataset, collate_pairs
 from src.evaluate import evaluate_method, load_neural_checkpoint
 from src.features import extract_split
 from src.loss import ranking_loss
@@ -79,6 +80,14 @@ def run_smoke(vgg: bool, pretrained_vgg: bool) -> None:
         root = Path(directory)
         cfg = create_fixture(root)
         vocab = load_vocab(root / "data/vocab.json")
+        train_data = CaptionFeatureDataset(cfg, "train", vocab)
+        batch = collate_pairs([train_data[0], train_data[1]])
+        assert batch["features"].shape == (2, 16)
+        assert batch["tokens"].dtype == torch.long
+        assert train_data._encoded_captions is not None
+        batch["features"][0, 0] = 99
+        assert train_data.features[0, 0] != 99  # Collation does not write into the feature file.
+        del train_data
         matrix, found = load_glove_matrix(root / "data/glove/glove.6B.300d.txt", vocab, 8, 7)
         assert found >= 8
         model = RetrievalModel(len(vocab), 16, 8, 12, "gru", matrix)

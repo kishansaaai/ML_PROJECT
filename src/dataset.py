@@ -30,15 +30,22 @@ class CaptionFeatureDataset(Dataset):
         ]
         self.vocab = vocab
         self.max_tokens = cfg["data"]["max_tokens"]
+        self._encoded_captions: list[list[int]] | None = None
 
     def __len__(self) -> int:
         return len(self.pairs)
 
     def __getitem__(self, index: int) -> dict:
+        if self._encoded_captions is None:
+            # Reuse caption tokenization across epochs; the baseline never needs it.
+            self._encoded_captions = [
+                encode_caption(caption, self.vocab, self.max_tokens)
+                for _, caption in self.pairs
+            ]
         image_index, caption = self.pairs[index]
         return {
-            "feature": torch.from_numpy(np.array(self.features[image_index], copy=True)),
-            "tokens": encode_caption(caption, self.vocab, self.max_tokens),
+            "feature": self.features[image_index],
+            "tokens": self._encoded_captions[index],
             "image_id": self.images[image_index]["image_id"],
             "image_index": image_index,
             "caption": caption,
@@ -46,14 +53,14 @@ class CaptionFeatureDataset(Dataset):
 
 
 def collate_pairs(batch: list[dict]) -> dict:
-    lengths = torch.tensor([len(item["tokens"]) for item in batch], dtype=torch.long)
-    tokens = torch.zeros((len(batch), int(lengths.max())), dtype=torch.long)
+    lengths_array = np.fromiter((len(item["tokens"]) for item in batch), dtype=np.int64, count=len(batch))
+    tokens_array = np.zeros((len(batch), int(lengths_array.max())), dtype=np.int64)
     for index, item in enumerate(batch):
-        tokens[index, :len(item["tokens"])] = torch.tensor(item["tokens"])
+        tokens_array[index, :lengths_array[index]] = item["tokens"]
     return {
-        "features": torch.stack([item["feature"] for item in batch]),
-        "tokens": tokens,
-        "lengths": lengths,
+        "features": torch.from_numpy(np.stack([item["feature"] for item in batch])),
+        "tokens": torch.from_numpy(tokens_array),
+        "lengths": torch.from_numpy(lengths_array),
         "image_ids": torch.tensor([item["image_id"] for item in batch], dtype=torch.long),
         "image_indices": [item["image_index"] for item in batch],
         "captions": [item["caption"] for item in batch],
