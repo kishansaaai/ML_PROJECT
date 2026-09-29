@@ -4,7 +4,7 @@ This repository implements the caption-to-image retrieval project in the supplie
 
 ## Project status
 
-No existing implementation was supplied with the two project PDFs, so this repository was built from the paper's specification. A 20-image-per-split COCO run verifies the pipeline with real images, captions, pretrained VGG-19, and GloVe; its measured results are in [VERIFICATION.md](VERIFICATION.md). Full COCO training and the paper's 1,000-image test gallery have not been run, so the subset scores are not final project results.
+No existing implementation was supplied with the two project PDFs, so this repository was built from the paper's specification. A 20-image-per-split COCO run verifies the pipeline with real images, captions, pretrained VGG-19, and GloVe; its measured results are in [VERIFICATION.md](VERIFICATION.md). The full COCO run is underway: the complete dataset has been prepared and VGG-19 feature extraction is in progress. Neural training and the paper's 1,000-image test gallery evaluation are still pending, so the subset scores are not final project results.
 
 ## Data and preprocessing
 
@@ -82,4 +82,4 @@ The first command checks manifest loading, GloVe parsing, baseline fitting, GRU/
 
 ## Results and limits
 
-The original paper reports results for its own implementation. This repository does not copy those numbers into its output. See [VERIFICATION.md](VERIFICATION.md) for measured results from a 20-image-per-split COCO execution check. Full paper-scale results require the large image dataset and sufficient compute. After the commands above run, `outputs/experiments/comparison.csv` contains this implementation's measured results. Caption length groups with fewer than five queries are omitted from the plot.
+The original paper reports results for its own implementation. This repository does not copy those numbers into its output. See [VERIFICATION.md](VERIFICATION.md) for measured results from a 20-image-per-split COCO execution check. The complete dataset is prepared, and the full run must finish before paper-scale results can be reported. After the commands above run, `outputs/experiments/comparison.csv` contains this implementation's measured results. Caption length groups with fewer than five queries are omitted from the plot.
