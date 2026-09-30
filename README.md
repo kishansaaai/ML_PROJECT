@@ -4,7 +4,7 @@ This repository implements the caption-to-image retrieval project in the supplie
 
 ## Project status
 
-No existing implementation was supplied with the two project PDFs, so this repository was built from the paper's specification. A 20-image-per-split COCO run verifies the pipeline with real images, captions, pretrained VGG-19, and GloVe; its measured results are in [VERIFICATION.md](VERIFICATION.md). The full COCO run is underway: the complete dataset has been prepared and VGG-19 feature extraction is in progress. Neural training and the paper's 1,000-image test gallery evaluation are still pending, so the subset scores are not final project results.
+No existing implementation was supplied with the two project PDFs, so this repository was built from the paper's specification. Full COCO VGG-19 feature extraction, baseline fitting, and training of all three recurrent variants are complete. All five specified methods have been evaluated on the 1,000-image test gallery. The measured results and an earlier 20-image pipeline check are documented in [VERIFICATION.md](VERIFICATION.md).
 
 ## Data and preprocessing
 
@@ -20,7 +20,7 @@ The baseline averages GloVe vectors in each caption and solves multi-response le
 
 The neural models map VGG features linearly into a 1024-dimensional shared space and encode caption words with a GRU or LSTM into that same space. The three variants are `gru` (word embeddings trained from scratch), `gru_glove`, and `lstm_glove`. Their similarity is the paper's `S(i,c) = -||f_i(i)-f_c(c)||²`. The loss applies a margin of 0.1 to both wrong-caption and wrong-image pairs within each batch. Other captions of the same image are excluded from negatives.
 
-The paper's starting configuration is retained: batch size 128, up to 50 epochs, Adam with learning rate 0.05, and early stopping from validation R@10 and loss. These settings can be changed in `config.yaml` or through the training command where supported.
+The paper's starting configuration is retained in `config.yaml`: batch size 128, up to 50 epochs, Adam with learning rate 0.05, and early stopping from validation R@10 and loss. The first full COCO GRU epoch at 0.05 produced validation R@10 of 0.9% and very large loss, so the full training run was restarted from scratch with an explicit 0.0001 learning-rate override. GRU, GRU + GloVe, and LSTM + GloVe stopped after 18, 16, and 14 epochs, respectively, using seven-epoch validation patience. The 0.05 diagnostic score is not a final test result.
 
 ## Setup and run
 
@@ -33,12 +33,12 @@ pip install -r requirements.txt
 python -m src.prepare_data --download-karpathy --download-images --download-glove
 python -m src.features --split all --overwrite
 python -m src.baseline
-python -m src.train --variant gru
-python -m src.train --variant gru_glove
-python -m src.train --variant lstm_glove
+python -m src.train --variant gru --learning-rate 0.0001
+python -m src.train --variant gru_glove --learning-rate 0.0001
+python -m src.train --variant lstm_glove --learning-rate 0.0001
 ```
 
-On a supported NVIDIA GPU, install the matching CUDA builds of PyTorch and torchvision using the [official PyTorch selector](https://docs.pytorch.org/get-started/locally/) before the full run. Check `python -c "import torch; print(torch.cuda.is_available())"`; `True` means this project will use the GPU. If feature extraction is interrupted, run `python -m src.features --split train --resume` (or `val`/`test`). If neural training is interrupted, run `python -m src.train --variant gru --resume` with the applicable variant. Progress is saved after each completed epoch.
+On a supported NVIDIA GPU, install the matching CUDA builds of PyTorch and torchvision using the [official PyTorch selector](https://docs.pytorch.org/get-started/locally/) before the full run. Check `python -c "import torch; print(torch.cuda.is_available())"`; `True` means this project will use the GPU. If feature extraction is interrupted, run `python -m src.features --split train --resume` (or `val`/`test`). If neural training is interrupted, run `python -m src.train --variant gru --resume --learning-rate 0.0001` with the applicable variant. Progress is saved after each completed epoch.
 
 If the files have already been downloaded, put `dataset_coco.json` under `data/coco/`, COCO `train2014/` and `val2014/` there, and `glove.6B.300d.txt` under `data/glove/`. Then run `python -m src.prepare_data` without download flags. `src.features` downloads the pretrained torchvision VGG-19 weights automatically on its first run.
 
@@ -57,7 +57,7 @@ python -m src.evaluate --method lstm_glove
 python -m src.experiments
 ```
 
-`baseline_weighted` reproduces the paper's special test where all five held-out captions of an image are averaged into one query. It uses information unavailable for a normal single-caption search, so compare it with this caveat. `src.experiments` writes the comparison table, validation R@10 curves, caption-length analysis, and short/long query examples to `outputs/experiments/`. It plots only metrics produced by local evaluation.
+`baseline_weighted` reproduces the paper's special test where the first five held-out captions of each image are averaged into one query. One COCO test image has a sixth caption in the source annotations; this method uses exactly five for every image. It uses information unavailable for a normal single-caption search, so compare it with this caveat. `src.experiments` writes the comparison table, validation R@10 curves, caption-length analysis, and short/long query examples to `outputs/experiments/`. It plots only metrics produced by local evaluation.
 
 Search the test gallery from a terminal:
 
@@ -82,4 +82,14 @@ The first command checks manifest loading, GloVe parsing, baseline fitting, GRU/
 
 ## Results and limits
 
-The original paper reports results for its own implementation. This repository does not copy those numbers into its output. See [VERIFICATION.md](VERIFICATION.md) for measured results from a 20-image-per-split COCO execution check. The complete dataset is prepared, and the full run must finish before paper-scale results can be reported. After the commands above run, `outputs/experiments/comparison.csv` contains this implementation's measured results. Caption length groups with fewer than five queries are omitted from the plot.
+The full run produced the following measured results on a fixed 1,000-image COCO test gallery, with 1,000 queries per method. Recall values are percentages. The pooled-caption baseline receives five captions per query; all other methods receive one.
+
+| Method | R@1 | R@10 | Mean rank |
+| --- | ---: | ---: | ---: |
+| Baseline | 4.5% | 21.8% | 170.46 |
+| Baseline + Weight | 4.9% | 24.2% | 158.75 |
+| GRU | 24.8% | 72.4% | 16.57 |
+| GRU + GloVe | 23.8% | 76.1% | 12.30 |
+| LSTM + GloVe | 21.0% | 72.0% | 14.81 |
+
+These scores come from this implementation's `outputs/experiments/comparison.csv`; they are not copied from the paper. GRU + GloVe has the highest single-caption R@10 in this run. [VERIFICATION.md](VERIFICATION.md) records the run conditions and a checked retrieval example. Caption length groups with fewer than five queries are omitted from the plot. Generated outputs, downloaded data, and checkpoints are excluded from Git; run the commands above to reproduce them locally.

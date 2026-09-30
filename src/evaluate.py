@@ -114,7 +114,11 @@ def evaluate_method(
     if method.startswith("baseline"):
         images = torch.from_numpy(np.array(dataset.features[:image_count], copy=True))
         if method == "baseline_weighted":
-            pairs = [(i, caption) for i, caption in dataset.pairs if i < image_count]
+            if any(len(image["captions"]) < 5 for image in dataset.images[:image_count]):
+                raise ValueError("Pooled baseline requires five captions for every gallery image")
+            pairs = [(i, caption)
+                     for i, image in enumerate(dataset.images[:image_count])
+                     for caption in image["captions"][:5]]
         else:
             pairs = [(i, image["captions"][0])
                      for i, image in enumerate(dataset.images[:image_count])]
