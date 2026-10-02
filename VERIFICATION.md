@@ -1,10 +1,33 @@
 # Verification and measured results
 
-## Source fidelity follow up
+## Final original feature run (2 October 2026)
 
-The completed measurements below have not been changed. Inspection of the authors' original source revealed differences in feature normalization, recurrent implementation, caption sampling, padding, vocabulary construction, and optimizer configuration. A new isolated run is in progress using the verified original feature archive. The details and unresolved evaluation ambiguity are in [REPRODUCTION.md](REPRODUCTION.md). Exact reproduction of Table 1 has not been established. Both the existing smoke test and the new source fidelity tests pass.
+Training and final evaluation completed on the full COCO split using the authors' original feature archive and `config_reference.yaml`. The archive contains 113,287 training images and 5,000 images in each held out split, with exactly five captions per image. All feature row identities were verified against Karpathy captions. The vocabulary contains 27,011 entries and GloVe initialized 22,061 entries. Embeddings are normalized and legacy Keras recurrent equations are used.
 
-## Full COCO run (30 September 2026)
+All three models completed 50 epochs with Adam learning rate 0.001, batch size 128, margin 0.1, one randomly sampled caption per training image, and summed ranking loss. Validation alone selected the saved best checkpoints. GRU selected epoch 42 with 87.9% validation R@10, GRU + GloVe selected epoch 28 with 87.6%, and LSTM + GloVe selected epoch 24 with 86.5%.
+
+Each final method has exactly 1,000 queries on the first 1,000 Karpathy test images. Standard methods use the first caption. Baseline + Weight pools five captions per query. The following values were recomputed from saved checkpoints and matched every recorded metric:
+
+```text
+Method                    R@1     R@10    Mean rank
+Baseline                   9.5%   45.2%     37.06
+Baseline + Weight         11.0%   52.2%     25.64
+GRU                       34.6%   83.1%      9.36
+GRU + GloVe               32.6%   82.9%      9.19
+LSTM + GloVe              27.9%   81.2%      9.39
+```
+
+The recheck verified finite saved model parameters, 50 epoch histories, the actual learning rate, validation checkpoint selection, and all gallery and query counts. The original smoke test and source fidelity tests pass. The experiment figures use the new histories and measured caption length results. Generated measurements are stored locally under `outputs/reference` and are excluded from Git.
+
+The GRU + GloVe query “a guy riding a bike next to a train” returns COCO 352476 first and the intended cyclist beside a train, COCO 483108, second. Their scores are approximately negative 1.227210 and negative 1.238391. The query “dog” returns COCO 255209 first, with score approximately negative 1.102623. Both complete top five rankings were reproduced and every image path exists.
+
+The new results improve upon the earlier neural run but do not reproduce Table 1 exactly. Measured neural R@10 is below the paper by 2.7 points for GRU, 3.9 for GRU + GloVe, and 5.0 for LSTM + GloVe. Published and measured baselines also differ. See [REPRODUCTION.md](REPRODUCTION.md) for every reference score and the original evaluator's caption protocol ambiguity. No published value is substituted for a measured result.
+
+The final write up and presentation report this completed run. The older measurements below are retained as historical evidence.
+
+The final PDF was rendered and visually inspected on both pages. It has exactly two well filled pages with black text and rules on white, no draft label, and no dash characters in visible text or metadata. The final ten slide PowerPoint passed package and layout checks, was rendered, and was visually inspected on every slide. All backgrounds are white, the test table matches the recorded measurements, and the example is labelled rank 2. README prose has no dash characters and runnable command flags remain valid.
+
+## Earlier local feature run (30 September 2026)
 
 COCO 2014 and the Karpathy split provided 113,287 training images, 5,000 validation images, and 5,000 test images. All images received ten-crop, ImageNet-pretrained VGG-19 `fc7` features. The linear baseline and three neural variants completed training. The paper's learning rate of 0.05 gave a first full-run GRU validation R@10 of 0.9% and very large loss; the full neural run was restarted from scratch with an explicit learning-rate override of 0.0001. That initial epoch is a diagnostic, not a test result. Batch size was 128, the maximum was 50 epochs, and early stopping patience was seven epochs.
 

@@ -2,9 +2,9 @@
 
 ## Current status
 
-The completed local run is a measured reproduction with different scores. A new isolated run uses the original feature archive and implementation details found in the authors' source. Its training is in progress. Identical published scores have not been achieved and are not guaranteed.
+The isolated original feature run completed on 2 October 2026. All three neural models completed 50 epochs. All five final results were recomputed and verified on the declared 1,000 query protocol. Published scores have not been reproduced exactly.
 
-The earlier checkpoints and results remain available. New checkpoints are written under `checkpoints/reference` and measurements under `outputs/reference`. The presentation and write up still describe the completed earlier run until the new run finishes and is verified.
+The earlier checkpoints and results remain available. Final checkpoints are under `checkpoints/reference` and measurements under `outputs/reference`. The final presentation, write up, README, and verification record now report the completed original feature run.
 
 ## Reference evidence
 
@@ -24,7 +24,7 @@ The GRU uses the legacy Keras reset convention, hard sigmoid gates, and tanh can
 
 The source lists `lrate` as 0.05 but compiles the model with Adam selected by name. The field is never supplied to the optimizer. This run explicitly uses 0.001, the legacy Adam default, rather than treating the unused field as an effective rate. The exact original dependency versions are unavailable, so this interpretation is documented rather than claimed as a verified optimizer trace.
 
-The maximum remains 50 epochs. Checkpoint selection uses validation performance only. Test scores are computed once after training and are not used to select settings, epochs, or random seeds. Random generator state is saved for resumable training. The local seed is 42; the authors did not publish their random seed.
+The maximum remains 50 epochs. Checkpoint selection uses validation performance only. Test scores were first computed after training and recomputed for verification. They were not used to select settings, epochs, or random seeds. Random generator state is saved for resumable training. The local seed is 42; the authors did not publish their random seed.
 
 ## Published target values
 
@@ -39,13 +39,26 @@ The maximum remains 50 epochs. Checkpoint selection uses validation performance 
 
 These are reference values transcribed from Table 1, not local measurements. The GRU row is explicitly attributed to Vendrov et al. The authors' repository does not include the original trained checkpoints or the baseline regression implementation.
 
+## Measured comparison
+
+<table>
+<tr><th>Method</th><th>Measured R@1</th><th>Measured R@10</th><th>Measured mean rank</th></tr>
+<tr><td>Baseline</td><td>9.5%</td><td>45.2%</td><td>37.06</td></tr>
+<tr><td>Baseline + Weight</td><td>11.0%</td><td>52.2%</td><td>25.64</td></tr>
+<tr><td>GRU</td><td>34.6%</td><td>83.1%</td><td>9.36</td></tr>
+<tr><td>GRU + GloVe</td><td>32.6%</td><td>82.9%</td><td>9.19</td></tr>
+<tr><td>LSTM + GloVe</td><td>27.9%</td><td>81.2%</td><td>9.39</td></tr>
+</table>
+
+The neural Recall@10 differences from Table 1 are 2.7, 3.9, and 5.0 percentage points lower for GRU, GRU + GloVe, and LSTM + GloVe respectively. GRU has the highest measured Recall@1 and Recall@10 here, while GRU + GloVe has the lowest mean rank. This differs from the paper's model ordering. Both baseline rows also differ substantially from the published results.
+
 ## Evaluation ambiguity
 
 The report says standard methods use one caption per image. Its released evaluator instead scores all five captions separately, creating 5,000 queries for a 1,000 image gallery. The exact caption selection and checkpoint used for Table 1 are not specified. The source and logs also reflect several experimental revisions.
 
 The new final evaluation keeps the document protocol: 1,000 gallery images and 1,000 queries per method. Standard methods use the first held out caption. Baseline + Weight pools five held out captions per image. This is a declared choice, not proof that the paper used the same selection.
 
-Exact numerical identity would require the original checkpoints, exact evaluation selection, random state, and software environment. Their absence prevents a justified promise of identical scores. Any new results will be reported as measured, with differences from the paper visible.
+Exact numerical identity would require the original checkpoints, exact evaluation selection, random state, and software environment. Their absence prevents a justified promise of identical scores. The measured results above keep those differences visible.
 
 ## Run and resume
 

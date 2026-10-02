@@ -61,10 +61,10 @@ def load_baseline(path: Path) -> tuple[np.ndarray, np.ndarray]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config.yaml")
-    parser.add_argument("--output", default="checkpoints/baseline.npz")
+    parser.add_argument("--output", default=None)
     args = parser.parse_args()
     cfg = load_config(args.config)
-    fit_baseline(cfg, project_path(cfg, args.output))
+    fit_baseline(cfg, project_path(cfg, args.output or f"{cfg['training']['checkpoint_dir']}/baseline.npz"))
 
 
 if __name__ == "__main__":

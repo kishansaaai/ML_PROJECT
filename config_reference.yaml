@@ -32,3 +32,6 @@ training:
   one_caption_per_image: true
   validation_images: 1000
   loss_reduction: sum
+evaluation:
+  metrics_dir: outputs/reference
+  experiment_dir: outputs/reference/experiments

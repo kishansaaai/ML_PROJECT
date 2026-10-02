@@ -74,7 +74,7 @@ def main() -> None:
     args = parser.parse_args()
     cfg = load_config(args.config)
     default = "baseline.npz" if args.method == "baseline" else f"{args.method}_best.pt"
-    results = retrieve(cfg, args.method, project_path(cfg, args.checkpoint or f"checkpoints/{default}"),
+    results = retrieve(cfg, args.method, project_path(cfg, args.checkpoint or f"{cfg['training']['checkpoint_dir']}/{default}"),
                        args.query, args.split, args.top_k, args.max_images)
     print(json.dumps(results, indent=2))
 

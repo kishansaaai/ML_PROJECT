@@ -21,7 +21,7 @@ METHODS = ["baseline", "baseline_weighted", "gru", "gru_glove", "lstm_glove"]
 def write_comparison(cfg: dict, split: str, output: Path) -> None:
     rows = []
     for method in METHODS:
-        path = project_path(cfg, f"outputs/{method}_{split}_metrics.json")
+        path = project_path(cfg, f"{cfg.get('evaluation', {}).get('metrics_dir', 'outputs')}/{method}_{split}_metrics.json")
         if not path.exists():
             continue
         metrics = json.loads(path.read_text(encoding="utf-8"))
@@ -42,7 +42,7 @@ def plot_experiments(cfg: dict, split: str, output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     histories = []
     for method in METHODS[2:]:
-        path = project_path(cfg, f"checkpoints/{method}_history.json")
+        path = project_path(cfg, f"{cfg['training']['checkpoint_dir']}/{method}_history.json")
         if path.exists():
             histories.append((method, json.loads(path.read_text(encoding="utf-8"))))
     if histories:
@@ -57,7 +57,7 @@ def plot_experiments(cfg: dict, split: str, output: Path) -> None:
     fig, ax = plt.subplots(figsize=(7, 4))
     plotted = False
     for method in ["baseline", "gru", "gru_glove", "lstm_glove"]:
-        path = project_path(cfg, f"outputs/{method}_{split}_metrics.json")
+        path = project_path(cfg, f"{cfg.get('evaluation', {}).get('metrics_dir', 'outputs')}/{method}_{split}_metrics.json")
         if not path.exists():
             continue
         data = json.loads(path.read_text(encoding="utf-8"))["caption_length"]
@@ -77,8 +77,8 @@ def save_retrieval_examples(cfg: dict, neural_method: str, output: Path, split: 
     queries = ["dog", "a guy riding a bike next to a train"]
     for query in queries:
         results = [
-            ("baseline", retrieve(cfg, "baseline", project_path(cfg, "checkpoints/baseline.npz"), query, split)),
-            (neural_method, retrieve(cfg, neural_method, project_path(cfg, f"checkpoints/{neural_method}_best.pt"), query, split)),
+            ("baseline", retrieve(cfg, "baseline", project_path(cfg, f"{cfg['training']['checkpoint_dir']}/baseline.npz"), query, split)),
+            (neural_method, retrieve(cfg, neural_method, project_path(cfg, f"{cfg['training']['checkpoint_dir']}/{neural_method}_best.pt"), query, split)),
         ]
         fig, axes = plt.subplots(2, 5, figsize=(13, 5))
         for row, (method, matches) in enumerate(results):
@@ -101,7 +101,7 @@ def main() -> None:
     parser.add_argument("--skip-examples", action="store_true")
     args = parser.parse_args()
     cfg = load_config(args.config)
-    output = project_path(cfg, "outputs/experiments")
+    output = project_path(cfg, cfg.get("evaluation", {}).get("experiment_dir", "outputs/experiments"))
     write_comparison(cfg, args.split, output)
     plot_experiments(cfg, args.split, output)
     if not args.skip_examples:

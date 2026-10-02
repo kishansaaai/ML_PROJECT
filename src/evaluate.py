@@ -155,10 +155,11 @@ def main() -> None:
     args = parser.parse_args()
     cfg = load_config(args.config)
     default_name = "baseline.npz" if args.method.startswith("baseline") else f"{args.method}_best.pt"
-    checkpoint = project_path(cfg, args.checkpoint or f"checkpoints/{default_name}")
+    checkpoint = project_path(cfg, args.checkpoint or f"{cfg['training']['checkpoint_dir']}/{default_name}")
     metrics = evaluate_method(cfg, args.split, args.method, checkpoint, args.max_images)
     print(json.dumps({key: value for key, value in metrics.items() if key != "caption_length"}, indent=2))
-    output = project_path(cfg, args.output or f"outputs/{args.method}_{args.split}_metrics.json")
+    metrics_dir = cfg.get("evaluation", {}).get("metrics_dir", "outputs")
+    output = project_path(cfg, args.output or f"{metrics_dir}/{args.method}_{args.split}_metrics.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     print(f"Saved {output}")

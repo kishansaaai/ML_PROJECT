@@ -1,125 +1,104 @@
 # Neural Caption Image Retrieval
 
-This repository implements the caption to image retrieval project described by Qian and Lamberti. A natural language query is encoded and compared with images from MS COCO. The project follows the specified VGG 19, GloVe, GRU, and LSTM approach.
+This repository implements the five caption to image retrieval methods in the project by Qian and Lamberti: a linear baseline, Baseline + Weight, GRU, GRU + GloVe, and LSTM + GloVe.
 
 ## Project status
 
-Full COCO feature extraction and training are complete. All five specified methods were evaluated on a fixed gallery of 1,000 test images. Each method received 1,000 queries. The recorded measurements are in [VERIFICATION.md](VERIFICATION.md). The presentation is [ML_PROJECT_review.pptx](ML_PROJECT_review.pptx).
+The final run with the authors' original feature archive completed on 2 October 2026. All three neural models completed 50 epochs. All five methods were evaluated with exactly 1,000 test queries on the same 1,000 image gallery. Recomputing results from the saved checkpoints reproduced every recorded score and both retrieval examples.
 
-Those completed results differ from the paper. A new isolated run uses the authors' original feature archive and additional details from their public source. That training is in progress. See [REPRODUCTION.md](REPRODUCTION.md) for the corrections, reproducible commands, reference scores, and limits on exact numerical matching. The existing slides and write up still describe the earlier completed run.
+The final presentation is [ML_PROJECT_review.pptx](ML_PROJECT_review.pptx), and the two page write up is [ML_PROJECT_writeup.pdf](ML_PROJECT_writeup.pdf). [VERIFICATION.md](VERIFICATION.md) records measured results and checks. [REPRODUCTION.md](REPRODUCTION.md) describes source details, the comparison with the paper, and unresolved evaluation ambiguity. The repository is private. The owner will grant faculty and TA access separately.
 
-## Data and image features
+## Data and representations
 
-The Karpathy split contains 113,287 training images, 5,000 validation images, and 5,000 test images. Images usually have five captions, although a few source records contain extras. Training captions alone define the vocabulary. Captions are lowercased, tokenized, limited to 40 tokens, and padded within each batch. The recurrent encoders use packed sequences for variable caption lengths.
+The Karpathy split contains 113,287 training images, 5,000 validation images, and 5,000 test images. The [original feature archive](https://www.cs.toronto.edu/~vendrov/order/coco.zip), linked by the [authors](https://github.com/giacomolamberti90/CS229_project), supplies five captions per image and normalized 4,096 dimensional VGG 19 fc7 features from ten crops. The importer checks the caption order against the annotations for every feature row. The archive checksum is recorded in REPRODUCTION.
 
-The image pipeline resizes each COCO image to 256 by 256 pixels, creates ten 224 by 224 crops including horizontal flips, and averages their 4,096 dimensional VGG 19 fc7 features. VGG 19 uses weights pretrained on ImageNet. Saved feature arrays are mapped into memory during training, so the full image collection is not loaded into training memory.
+Following the released source, the vocabulary includes training captions and captions from the first 1,000 validation images. It has 27,011 entries including two special tokens. Captions use whitespace tokenization and 50 padded positions. Neural GloVe initialization uses 300 dimensional GloVe 6B vectors, with zero vectors for missing words. Pretrained word embeddings are fine tuned.
 
-The project uses 300 dimensional GloVe 6B word vectors. The pretrained recurrent embedding tables are fine tuned. The linear baseline averages available word vectors in each caption.
+The earlier local feature extraction pipeline is retained with `config.yaml`. It averages ten crops of torchvision VGG 19 features and uses a different vocabulary and packed recurrent sequences. Those older checkpoints and measurements remain available for comparison. The final deliverables use `config_reference.yaml` and the isolated reference run.
 
-Data sources: [COCO](https://cocodataset.org/#download), [Karpathy annotations](https://cs.stanford.edu/people/karpathy/deepimagesent/), and [GloVe](https://nlp.stanford.edu/projects/glove/).
+## Methods and training
 
-## Methods
+The baseline averages word vectors and fits a multiple response least squares map to VGG image features. Baseline + Weight pools five held out captions into one query. Standard methods use one held out caption per image.
 
-The linear baseline fits a multiple response least squares map from averaged GloVe caption vectors to VGG image features. Retrieval ranks images by squared Euclidean distance to the mapped query. The Baseline + Weight evaluation combines the first five held out captions of each test image into one query.
+The neural methods project image features with a bias into a 1,024 dimensional space and encode captions with GRU or LSTM. Both resulting embeddings are normalized. Negative squared Euclidean distance scores a match. The bidirectional margin ranking loss sums mismatched pairs with margin 0.1.
 
-The neural variants are GRU, GRU + GloVe, and LSTM + GloVe. Each projects the VGG vector into a 1,024 dimensional shared space and represents the caption using the final recurrent state. Similarity is the negative squared Euclidean distance between those two representations. A bidirectional margin ranking loss separates matching pairs from wrong captions and wrong images within each batch. Other captions of the same image are excluded from negative pairs.
+The reference cells reproduce legacy Keras gate equations, including the GRU reset convention, hard sigmoid recurrent gates, and the LSTM forget bias. They process all 50 positions, including padding. Each epoch samples one of five captions per image. Batch size is 128. Each model completed the configured maximum of 50 epochs; validation selected the checkpoint. The local random seed is 42 and random state is saved for resumption.
 
-The configuration uses a margin of 0.1, batch size 128, Adam, a maximum of 50 epochs, and validation based early stopping with patience seven. The paper lists a learning rate of 0.05. Its first full GRU epoch gave ineffective validation, so the completed neural runs were restarted with an explicit learning rate of 0.0001. The actual value is used in the commands below.
+Adam uses an explicit learning rate of 0.001. The paper lists 0.05, but the released source does not pass its `lrate` field to the optimizer. The effective default and the missing original software environment are documented in REPRODUCTION. Test scores did not select settings or checkpoints.
 
-## Setup and full run
+## Setup and final run
 
-From the repository root, use Python 3.12. Install the requirements before preparing data. The download command starts a large COCO and GloVe transfer.
+From the repository root, use Python 3.12 and install the requirements. COCO images are needed for retrieval figures and a live demonstration. Downloads are large.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python -m src.prepare_data --download-karpathy --download-images --download-glove
-python -m src.features --split all --overwrite
-python -m src.baseline
-python -m src.train --variant gru --learning-rate 0.0001
-python -m src.train --variant gru_glove --learning-rate 0.0001
-python -m src.train --variant lstm_glove --learning-rate 0.0001
+New-Item -ItemType Directory -Force data/paper_reference
+Invoke-WebRequest https://www.cs.toronto.edu/~vendrov/order/coco.zip -OutFile data/paper_reference/coco.zip
+python -m src.prepare_reference_data --config config_reference.yaml
+python -m src.reference_run --config config_reference.yaml
+python -m src.experiments --config config_reference.yaml
 ```
 
-For a supported NVIDIA GPU, install matching CUDA builds of PyTorch and torchvision using the [official PyTorch site](https://pytorch.org/) before the full run. Check GPU availability:
+For an NVIDIA GPU, install compatible CUDA builds using the [official PyTorch instructions](https://pytorch.org/). Check availability:
 
 ```powershell
 python -c "import torch; print(torch.cuda.is_available())"
 ```
 
-If the data has already been downloaded, place `dataset_coco.json` under `data/coco/`, the COCO `train2014/` and `val2014/` folders there, and `glove.6B.300d.txt` under `data/glove/`. Then prepare manifests without download flags:
+If COCO annotations, images, and GloVe are already present, skip their download command. Put `dataset_coco.json` and the image folders under `data/coco`, and `glove.6B.300d.txt` under `data/glove`. Import the original feature archive with the command above. The reference run uses those imported arrays directly and does not require another feature extraction pass.
+
+The reference runner resumes completed stages and saved neural progress. Run it again after an interruption. Individual neural training can also resume:
 
 ```powershell
-python -m src.prepare_data
+python -m src.train --config config_reference.yaml --variant gru_glove --resume --learning-rate 0.001
 ```
 
-Interrupted feature extraction and training can resume from saved progress. Select the relevant split and model:
+## Evaluation and live retrieval
+
+The first 1,000 Karpathy test images form the gallery. Standard methods use the first caption of each image. Baseline + Weight pools exactly five captions per image, so it receives more query information. The report describes one caption per image, but the released evaluator scores all five separately. The original Table 1 caption selection is unspecified. Our declared protocol has 1,000 queries for every method.
 
 ```powershell
-python -m src.features --split train --resume
-python -m src.train --variant gru --resume --learning-rate 0.0001
+python -m src.evaluate --config config_reference.yaml --method baseline
+python -m src.evaluate --config config_reference.yaml --method baseline_weighted
+python -m src.evaluate --config config_reference.yaml --method gru
+python -m src.evaluate --config config_reference.yaml --method gru_glove
+python -m src.evaluate --config config_reference.yaml --method lstm_glove
+python -m src.experiments --config config_reference.yaml
+python -m src.retrieve --config config_reference.yaml --method gru_glove --query "a guy riding a bike next to a train" --top-k 5
+python -m src.retrieve --config config_reference.yaml --method gru_glove --query "dog" --top-k 5
 ```
 
-For a small execution check with real COCO images, a subset command downloads 20 images from each split. This verifies the pipeline and does not produce full project results:
+Retrieval returns ranked image paths, scores, and a dataset caption. The longer example puts the cyclist beside a train at rank 2, with a bicycle attached to a bus first. The short query returns a dog at rank 1. These are recorded observations and do not imply every query is correct.
 
-```powershell
-python -m src.prepare_data --download-subset 20 --download-glove
-```
+## Measured final test results
 
-Regenerate full manifests before running the full experiment after a subset check.
-
-## Evaluation and retrieval
-
-The first 1,000 test images form the gallery. Normal methods use the first held out caption of each image. Baseline + Weight pools exactly five held out captions per image. One source image has a sixth caption, which is excluded from that pooled query. The pooled method has more text information and should be compared with that qualification.
-
-Evaluation reports Recall@1, Recall@10, and mean rank. Validation selects the best neural checkpoint; test data is used only for final measurement.
-
-```powershell
-python -m src.evaluate --method baseline
-python -m src.evaluate --method baseline_weighted
-python -m src.evaluate --method gru
-python -m src.evaluate --method gru_glove
-python -m src.evaluate --method lstm_glove
-python -m src.experiments
-```
-
-The experiment command writes the measured comparison, validation Recall@10 curves, caption length analysis, and short and long retrieval examples. Search the saved test gallery from a terminal:
-
-```powershell
-python -m src.retrieve --method gru_glove --query "a guy riding a bike next to a train" --top-k 5
-python -m src.retrieve --method baseline --query "dog" --top-k 5
-```
-
-Retrieval returns ranked image paths, scores, and a dataset caption. VGG features are reused from saved arrays instead of being extracted from every image for every query.
-
-## Measured results
-
-These values come from the local full COCO run and are not copied from the paper. Every row uses 1,000 test queries against the same 1,000 image gallery. The pooled baseline receives five captions per query; the other methods receive one.
+Every row below contains local measurements from the completed reference run. Recall@1 and Recall@10 are percentages. Lower mean rank is better.
 
 ```text
 Method                    R@1     R@10    Mean rank
-Baseline                  4.5%    21.8%   170.46
-Baseline + Weight          4.9%    24.2%   158.75
-GRU                       24.8%   72.4%    16.57
-GRU + GloVe               23.8%   76.1%    12.30
-LSTM + GloVe              21.0%   72.0%    14.81
+Baseline                   9.5%   45.2%     37.06
+Baseline + Weight         11.0%   52.2%     25.64
+GRU                       34.6%   83.1%      9.36
+GRU + GloVe               32.6%   82.9%      9.19
+LSTM + GloVe              27.9%   81.2%      9.39
 ```
 
-GRU + GloVe achieved the highest single caption Recall@10. GRU achieved the highest Recall@1. Best validation Recall@10 was 75.2% for GRU, 78.3% for GRU + GloVe, and 76.8% for LSTM + GloVe. Training ended after 18, 16, and 14 epochs. [VERIFICATION.md](VERIFICATION.md) records the run conditions and a checked retrieval example.
+GRU achieved the highest measured Recall@1 and Recall@10. GRU + GloVe had the lowest mean rank. Best validation Recall@10 was 87.9% for GRU, 87.6% for GRU + GloVe, and 86.5% for LSTM + GloVe. Validation selected epochs 42, 28, and 24 respectively.
 
-## Verification
+The published neural Recall@10 values are 85.8%, 86.8%, and 86.2%. Our values are lower by 2.7, 3.9, and 5.0 percentage points respectively. The baseline results also differ. Exact paper score reproduction has not been achieved. The original trained checkpoints, random seed, dependency versions, and Table 1 caption selection are unavailable. REPRODUCTION lists the full reference table and measured comparison.
 
-The synthetic COCO format fixture checks manifest loading, GloVe parsing, baseline fitting, recurrent forward and backward passes, training, checkpoint loading, evaluation, and retrieval. Additional modes check VGG feature extraction.
+## Verification and local files
 
 ```powershell
 python -m tests.smoke_test
-python -m tests.smoke_test --vgg
-python -m tests.smoke_test --pretrained-vgg
+python -m tests.reference_test
 ```
 
-The fixture proves execution, not retrieval quality. Actual COCO results are the measured values above.
+The synthetic fixture checks data loading, baseline fitting, training, checkpoint loading, evaluation, and retrieval. The source fidelity tests independently check the GRU and LSTM equations, gradients, embedding normalization, padding, summed loss, and compatibility with the earlier checkpoints. Synthetic checks measure execution rather than COCO accuracy.
 
-## Local files and limits
+The final local measurements are in `outputs/reference`, with comparison figures in `outputs/reference/experiments`. Checkpoints are in `checkpoints/reference`. Both example rankings were reproduced and every returned image path exists. All saved model tensors and feature arrays are finite. The working local environment contains the data and checkpoints for a live demonstration.
 
-COCO images, GloVe files, VGG weights, feature arrays, checkpoints, and generated experiment outputs are excluded from Git because of their size. Reproducing the full results on another computer requires the data download, feature extraction, and training commands above. The working local environment already contains the completed data and model checkpoints for a live demonstration.
+Datasets, original feature arrays, downloaded weights, GloVe, checkpoints, and generated experiment outputs are excluded from Git. The source code, README, verification records, presentation, and write up are hosted in the private repository. Reproducing measurements on another machine requires the data and training commands above.
