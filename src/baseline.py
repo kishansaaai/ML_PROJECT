@@ -12,10 +12,11 @@ from .dataset import CaptionFeatureDataset
 from .preprocessing import encode_caption, load_glove_matrix, load_vocab
 
 
-def mean_word_vectors(texts: list[str], vectors: np.ndarray, vocab: dict[str, int], max_tokens: int) -> np.ndarray:
+def mean_word_vectors(texts: list[str], vectors: np.ndarray, vocab: dict[str, int], max_tokens: int,
+                      tokenization: str = "regex") -> np.ndarray:
     output = np.empty((len(texts), vectors.shape[1]), dtype=np.float32)
     for index, text in enumerate(texts):
-        ids = encode_caption(text, vocab, max_tokens)
+        ids = encode_caption(text, vocab, max_tokens, tokenization)
         known = [word_id for word_id in ids if word_id != vocab["<unk>"]]
         output[index] = vectors[known].mean(axis=0) if known else 0
     return output
@@ -38,7 +39,8 @@ def fit_baseline(cfg: dict, output: Path) -> Path:
     batch_size = 1024
     for start in tqdm(range(0, len(dataset.pairs), batch_size), desc="Fitting baseline"):
         pairs = dataset.pairs[start:start + batch_size]
-        x = mean_word_vectors([caption for _, caption in pairs], vectors, vocab, dataset.max_tokens).astype(np.float64)
+        x = mean_word_vectors([caption for _, caption in pairs], vectors, vocab, dataset.max_tokens,
+                              dataset.tokenization).astype(np.float64)
         y = np.asarray(dataset.features[[index for index, _ in pairs]], dtype=np.float64)
         xtx += x.T @ x
         xty += x.T @ y

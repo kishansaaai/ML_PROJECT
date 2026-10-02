@@ -6,6 +6,8 @@ This repository implements the caption to image retrieval project described by Q
 
 Full COCO feature extraction and training are complete. All five specified methods were evaluated on a fixed gallery of 1,000 test images. Each method received 1,000 queries. The recorded measurements are in [VERIFICATION.md](VERIFICATION.md). The presentation is [ML_PROJECT_review.pptx](ML_PROJECT_review.pptx).
 
+Those completed results differ from the paper. A new isolated run uses the authors' original feature archive and additional details from their public source. That training is in progress. See [REPRODUCTION.md](REPRODUCTION.md) for the corrections, reproducible commands, reference scores, and limits on exact numerical matching. The existing slides and write up still describe the earlier completed run.
+
 ## Data and image features
 
 The Karpathy split contains 113,287 training images, 5,000 validation images, and 5,000 test images. Images usually have five captions, although a few source records contain extras. Training captions alone define the vocabulary. Captions are lowercased, tokenized, limited to 40 tokens, and padded within each batch. The recurrent encoders use packed sequences for variable caption lengths.

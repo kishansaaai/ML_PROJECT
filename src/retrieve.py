@@ -36,7 +36,7 @@ def retrieve(cfg: dict, method: str, checkpoint: Path, query: str,
     with torch.no_grad():
         if method == "baseline":
             images = torch.from_numpy(np.array(dataset.features[:count], copy=True))
-            text = mean_word_vectors([query], vectors, vocab, dataset.max_tokens) @ weights
+            text = mean_word_vectors([query], vectors, vocab, dataset.max_tokens, dataset.tokenization) @ weights
             query_embedding = torch.from_numpy(text)
         else:
             device = device_for_run()
@@ -45,7 +45,7 @@ def retrieve(cfg: dict, method: str, checkpoint: Path, query: str,
                 features = torch.from_numpy(np.array(dataset.features[start:start + 128], copy=True)).to(device)
                 projected.append(model.encode_images(features).cpu())
             images = torch.cat(projected)
-            ids = encode_caption(query, vocab, dataset.max_tokens)
+            ids = encode_caption(query, vocab, dataset.max_tokens, dataset.tokenization)
             query_embedding = model.encode_captions(
                 torch.tensor([ids], dtype=torch.long, device=device), torch.tensor([len(ids)])
             ).cpu()

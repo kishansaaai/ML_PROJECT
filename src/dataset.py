@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import random
 
 import numpy as np
 import torch
@@ -30,6 +31,7 @@ class CaptionFeatureDataset(Dataset):
         ]
         self.vocab = vocab
         self.max_tokens = cfg["data"]["max_tokens"]
+        self.tokenization = cfg["data"].get("tokenization", "regex")
         self._encoded_captions: list[list[int]] | None = None
 
     def __len__(self) -> int:
@@ -39,7 +41,7 @@ class CaptionFeatureDataset(Dataset):
         if self._encoded_captions is None:
             # Reuse caption tokenization across epochs; the baseline never needs it.
             self._encoded_captions = [
-                encode_caption(caption, self.vocab, self.max_tokens)
+                encode_caption(caption, self.vocab, self.max_tokens, self.tokenization)
                 for _, caption in self.pairs
             ]
         image_index, caption = self.pairs[index]
@@ -50,6 +52,24 @@ class CaptionFeatureDataset(Dataset):
             "image_index": image_index,
             "caption": caption,
         }
+
+
+class RandomCaptionDataset(Dataset):
+    """One uniformly sampled caption per image, matching the released trainer."""
+    def __init__(self, pairs: CaptionFeatureDataset):
+        self.pairs = pairs
+        self.indices = [[] for _ in pairs.images]
+        for index, (image_index, _) in enumerate(pairs.pairs):
+            if len(self.indices[image_index]) < 5:
+                self.indices[image_index].append(index)
+        if any(len(indices) != 5 for indices in self.indices):
+            raise ValueError("Reference sampling requires five captions per image")
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, index):
+        return self.pairs[self.indices[index][random.randrange(5)]]
 
 
 def collate_pairs(batch: list[dict]) -> dict:

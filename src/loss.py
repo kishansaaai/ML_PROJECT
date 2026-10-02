@@ -12,6 +12,7 @@ def ranking_loss(
     caption_embeddings: torch.Tensor,
     image_ids: torch.Tensor,
     margin: float = 0.1,
+    reduction: str = "mean",
 ) -> torch.Tensor:
     scores = similarity_matrix(image_embeddings, caption_embeddings)
     positive = scores.diag()
@@ -21,4 +22,8 @@ def ranking_loss(
     wrong_caption = F.relu(margin + scores - positive[:, None])
     wrong_image = F.relu(margin + scores - positive[None, :])
     # Column j uses the positive score for caption j; rows are incorrect images.
-    return (wrong_caption[negatives].mean() + wrong_image[negatives].mean())
+    if reduction == "sum":
+        return wrong_caption[negatives].sum() + wrong_image[negatives].sum()
+    if reduction != "mean":
+        raise ValueError("Ranking loss reduction must be mean or sum")
+    return wrong_caption[negatives].mean() + wrong_image[negatives].mean()

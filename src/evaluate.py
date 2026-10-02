@@ -25,6 +25,7 @@ def load_neural_checkpoint(path: Path, device: torch.device) -> tuple[RetrievalM
         word_dim=checkpoint["word_dim"],
         embedding_dim=checkpoint["embedding_dim"],
         recurrent_type=checkpoint["recurrent_type"],
+        **checkpoint.get("model_options", {}),
     )
     model.load_state_dict(checkpoint["model"])
     model.to(device).eval()
@@ -46,7 +47,8 @@ def neural_embeddings(
         captions = []
         for start in range(0, len(pairs), batch_size):
             batch = pairs[start:start + batch_size]
-            encoded = [encode_caption(text, dataset.vocab, dataset.max_tokens) for _, text in batch]
+            encoded = [encode_caption(text, dataset.vocab, dataset.max_tokens, dataset.tokenization)
+                       for _, text in batch]
             lengths = torch.tensor([len(ids) for ids in encoded], dtype=torch.long)
             tokens = torch.zeros((len(batch), int(lengths.max())), dtype=torch.long)
             for row, ids in enumerate(encoded):
@@ -124,7 +126,7 @@ def evaluate_method(
                      for i, image in enumerate(dataset.images[:image_count])]
         targets = [i for i, _ in pairs]
         captions = [text for _, text in pairs]
-        features = mean_word_vectors(captions, vectors, vocab, dataset.max_tokens)
+        features = mean_word_vectors(captions, vectors, vocab, dataset.max_tokens, dataset.tokenization)
         if method == "baseline_weighted":
             # Paper's oracle experiment: combine the five held-out captions for each image.
             pooled = [features[np.asarray(targets) == i].mean(axis=0) for i in range(image_count)]

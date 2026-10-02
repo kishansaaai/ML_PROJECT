@@ -1,5 +1,9 @@
 # Verification and measured results
 
+## Source fidelity follow up
+
+The completed measurements below have not been changed. Inspection of the authors' original source revealed differences in feature normalization, recurrent implementation, caption sampling, padding, vocabulary construction, and optimizer configuration. A new isolated run is in progress using the verified original feature archive. The details and unresolved evaluation ambiguity are in [REPRODUCTION.md](REPRODUCTION.md). Exact reproduction of Table 1 has not been established. Both the existing smoke test and the new source fidelity tests pass.
+
 ## Full COCO run (30 September 2026)
 
 COCO 2014 and the Karpathy split provided 113,287 training images, 5,000 validation images, and 5,000 test images. All images received ten-crop, ImageNet-pretrained VGG-19 `fc7` features. The linear baseline and three neural variants completed training. The paper's learning rate of 0.05 gave a first full-run GRU validation R@10 of 0.9% and very large loss; the full neural run was restarted from scratch with an explicit learning-rate override of 0.0001. That initial epoch is a diagnostic, not a test result. Batch size was 128, the maximum was 50 epochs, and early stopping patience was seven epochs.

@@ -33,8 +33,10 @@ def load_vocab(path: Path) -> dict[str, int]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def encode_caption(text: str, vocab: dict[str, int], max_tokens: int) -> list[int]:
-    ids = [vocab.get(token, vocab["<unk>"]) for token in tokenize(text)[:max_tokens]]
+def encode_caption(text: str, vocab: dict[str, int], max_tokens: int,
+                   tokenization: str = "regex") -> list[int]:
+    words = text.split() if tokenization == "whitespace" else tokenize(text)
+    ids = [vocab.get(token, vocab["<unk>"]) for token in words[:max_tokens]]
     return ids or [vocab["<unk>"]]
 
 
