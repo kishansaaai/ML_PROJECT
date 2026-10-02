@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import random
+import math
 
 import numpy as np
 import torch
@@ -70,6 +71,36 @@ class RandomCaptionDataset(Dataset):
 
     def __getitem__(self, index):
         return self.pairs[self.indices[index][random.randrange(5)]]
+
+
+class SourceBatchSampler:
+    """Released generator semantics: full batches, then ceil(N / batch) updates.
+
+    A nondivisible image count starts a second shuffled caption cycle to supply
+    the extra batch. The source logs confirm 886 updates for 113287 images.
+    Thread prefetch timing and the original random state are unavailable.
+    """
+    def __init__(self, dataset: CaptionFeatureDataset, batch_size: int):
+        if batch_size < 1 or len(dataset.images) < batch_size:
+            raise ValueError("Source generator requires at least one full batch")
+        self.indices = RandomCaptionDataset(dataset).indices
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return math.ceil(len(self.indices) / self.batch_size)
+
+    def __iter__(self):
+        emitted = 0
+        complete = len(self.indices) // self.batch_size
+        while emitted < len(self):
+            order = np.random.permutation(len(self.indices))
+            # Source materializes a whole caption cycle before yielding batches.
+            selected = [self.indices[int(i)][random.randrange(5)] for i in order]
+            for batch in range(complete):
+                yield selected[batch * self.batch_size:(batch + 1) * self.batch_size]
+                emitted += 1
+                if emitted == len(self):
+                    return
 
 
 def collate_pairs(batch: list[dict]) -> dict:

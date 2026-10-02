@@ -6,6 +6,7 @@ import csv
 from datetime import datetime, timezone
 import json
 import os
+import shutil
 import traceback
 
 from .baseline import fit_baseline
@@ -16,7 +17,7 @@ from .train import train
 
 
 def run(cfg: dict):
-    output = project_path(cfg, "outputs/reference")
+    output = project_path(cfg, cfg.get("evaluation", {}).get("metrics_dir", "outputs/reference"))
     output.mkdir(parents=True, exist_ok=True)
     status_path = output / "status.json"
     status = json.loads(status_path.read_text()) if status_path.exists() else {"completed_training": []}
@@ -24,7 +25,7 @@ def run(cfg: dict):
         print("Reference run is already complete")
         return
     status["pid"] = os.getpid()
-    status["config"] = "config_reference.yaml"
+    status["config"] = cfg.get("_config_name", "config_reference.yaml")
 
     def save(stage, **values):
         status.update(stage=stage, updated_utc=datetime.now(timezone.utc).isoformat(), **values)
@@ -41,7 +42,12 @@ def run(cfg: dict):
         checkpoint_dir = project_path(cfg, cfg["training"]["checkpoint_dir"])
         if "baseline" not in status["completed_training"]:
             save("training_baseline")
-            fit_baseline(cfg, checkpoint_dir / "baseline.npz")
+            baseline_source = cfg.get("training", {}).get("baseline_checkpoint")
+            if baseline_source and project_path(cfg, baseline_source).is_file():
+                checkpoint_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(project_path(cfg, baseline_source), checkpoint_dir / "baseline.npz")
+            else:
+                fit_baseline(cfg, checkpoint_dir / "baseline.npz")
             status["completed_training"].append("baseline")
         for variant in ("gru_glove", "gru", "lstm_glove"):
             if variant in status["completed_training"]:
@@ -65,6 +71,11 @@ def run(cfg: dict):
         examples = {query: retrieve(cfg, "gru_glove", checkpoint_dir / "gru_glove_best.pt", query)
                     for query in ("dog", "a guy riding a bike next to a train")}
         (output / "retrieval_examples.json").write_text(json.dumps(examples, indent=2), encoding="utf-8")
+        if cfg.get("evaluation", {}).get("audit_source_protocol", False):
+            from .source_evaluation import audit
+            save("source_protocol_evaluation")
+            supplement = audit(cfg, ["best", "last", "paper"])
+            (output / "source_protocol_audit.json").write_text(json.dumps(supplement, indent=2), encoding="utf-8")
         save("complete", measured_results=results, error=None)
     except Exception:
         save("failed", error=traceback.format_exc())
@@ -75,7 +86,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config_reference.yaml")
     args = parser.parse_args()
-    run(load_config(args.config))
+    cfg = load_config(args.config)
+    cfg["_config_name"] = args.config
+    run(cfg)
 
 
 if __name__ == "__main__":

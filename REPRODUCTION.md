@@ -45,20 +45,45 @@ These are reference values transcribed from Table 1, not local measurements. The
 <tr><th>Method</th><th>Measured R@1</th><th>Measured R@10</th><th>Measured mean rank</th></tr>
 <tr><td>Baseline</td><td>9.5%</td><td>45.2%</td><td>37.06</td></tr>
 <tr><td>Baseline + Weight</td><td>11.0%</td><td>52.2%</td><td>25.64</td></tr>
-<tr><td>GRU</td><td>34.6%</td><td>83.1%</td><td>9.36</td></tr>
-<tr><td>GRU + GloVe</td><td>32.6%</td><td>82.9%</td><td>9.19</td></tr>
-<tr><td>LSTM + GloVe</td><td>27.9%</td><td>81.2%</td><td>9.39</td></tr>
+<tr><td>GRU</td><td>34.9%</td><td>83.4%</td><td>9.14</td></tr>
+<tr><td>GRU + GloVe</td><td>32.9%</td><td>83.1%</td><td>9.01</td></tr>
+<tr><td>LSTM + GloVe</td><td>28.2%</td><td>81.7%</td><td>9.18</td></tr>
 </table>
 
-The neural Recall@10 differences from Table 1 are 2.7, 3.9, and 5.0 percentage points lower for GRU, GRU + GloVe, and LSTM + GloVe respectively. GRU has the highest measured Recall@1 and Recall@10 here, while GRU + GloVe has the lowest mean rank. This differs from the paper's model ordering. Both baseline rows also differ substantially from the published results.
+The neural Recall@10 differences from Table 1 are 2.4, 3.7, and 4.5 percentage points lower for GRU, GRU + GloVe, and LSTM + GloVe respectively. GRU has the highest measured Recall@1 and Recall@10 here, while GRU + GloVe has the lowest mean rank. This differs from the paper's model ordering. Both baseline rows also differ substantially from the published results.
 
-## Evaluation ambiguity
+## Source evaluation audit and correction
 
-The report says standard methods use one caption per image. Its released evaluator instead scores all five captions separately, creating 5,000 queries for a 1,000 image gallery. The exact caption selection and checkpoint used for Table 1 are not specified. The source and logs also reflect several experimental revisions.
+The complete author repository history was inspected. No trained HDF5 checkpoints or baseline implementation appears in that history. The earliest trainer used order embeddings; a later revision switched to normalized Euclidean embeddings and GloVe initialization. The GRU row in Table 1 is an external Vendrov reference rather than a trained model supplied in this repository.
 
-The new final evaluation keeps the document protocol: 1,000 gallery images and 1,000 queries per method. Standard methods use the first held out caption. Baseline + Weight pools five held out captions per image. This is a declared choice, not proof that the paper used the same selection.
+The saved GRU + GloVe evaluation logs contain the exact published pair 86.8% Recall@10 and mean rank 7.3. The continued training log contains this pair after epoch 49. The saved LSTM + GloVe evaluation logs contain 86.2% and 7.5, with the matching training record after epoch 40. The corresponding Recall@1 logs contain 37.0% and 35.4%. This is evidence linking the paper values to those logs. It does not prove the exact original checkpoint file or validation selection.
 
-Exact numerical identity would require the original checkpoints, exact evaluation selection, random state, and software environment. Their absence prevents a justified promise of identical scores. The measured results above keep those differences visible.
+The released loader selects the first 1000 test images and their 5000 captions. The evaluator ranks each of those captions separately and assigns target image index equal to caption index divided by five. It uses NumPy argsort on squared Euclidean distances. This differs from the report's description of one caption per image. The supplementary evaluation follows the released source and keeps the document's 1000 query comparison separate.
+
+The local image encoder loop previously included 24 extra gallery rows in its final batch while its metadata said 1000. The loop now clamps the last slice and asserts the actual embedding dimensions. All current document protocol scores were recomputed on exactly 1000 images. The prior values are retained in the ignored status record. The historical validation checkpoint scores also used 1024 actual image embeddings; the recorded selection is preserved and is not claimed as a corrected 1000 image validation search.
+
+The supplementary measured results from the already selected checkpoints are below. The final epoch checkpoints were also evaluated without using test results to choose between them; all six rows are retained locally in outputs/reference/source_protocol_audit.json. No test score selects a new setting or checkpoint.
+
+<table>
+<tr><th>Method</th><th>Queries</th><th>Measured R@1</th><th>Measured R@10</th><th>Mean rank</th></tr>
+<tr><td>GRU</td><td>5000</td><td>37.58%</td><td>85.26%</td><td>7.9646</td></tr>
+<tr><td>GRU + GloVe</td><td>5000</td><td>35.10%</td><td>85.02%</td><td>7.8240</td></tr>
+<tr><td>LSTM + GloVe</td><td>5000</td><td>31.46%</td><td>83.88%</td><td>8.0992</td></tr>
+</table>
+
+The supplementary neural Recall@10 differences from the paper are 0.54, 1.78, and 2.32 percentage points lower. The protocol explains part of the earlier difference, but numerical identity remains unachieved.
+
+The original t2i function was also executed unchanged using independently computed NumPy Euclidean norms for the GRU + GloVe checkpoint. Every one of its 5000 query ranks matched the supplementary implementation. This verifies the evaluator arithmetic and target mapping on the real gallery. The retrieval image batch now uses the same strict gallery boundary, and both existing example rankings were rechecked.
+
+## Further source fidelity training
+
+A separate config_author.yaml run uses the same verified features, vocabulary, recurrent cells, embeddings and loss. It corrects two remaining implementation differences: legacy Adam with epsilon 0.0000001 before moment bias correction, and 886 full batch updates per epoch. The original fit generator uses a fractional steps_per_epoch and its logs confirm 886 rather than 885 updates. Full batches wrap into a second shuffled caption cycle. As in the source, a whole caption cycle is sampled before yielding batches.
+
+The legacy Adam convention is derived from the Keras 2.2.4 implementation. This is a documented reconstruction, not proof of the authors' dependency version. The exact asynchronous generator prefetch timing and original random state are unknown. Independent NumPy checks validate the Adam updates, tiny gradients and optimizer resumption. A generator fixture validates full batches and ceiling step counts.
+
+The new run retains 50 epochs, seed 42, Adam learning rate 0.001, batch 128 and margin 0.1. It uses exactly 1000 validation images and 5000 validation caption queries for checkpoint selection. The author log epochs 49 for GRU + GloVe and 40 for LSTM + GloVe are saved as preset comparison checkpoints independently of local test results. All test comparisons occur after training. Progress and measurements use outputs/author, with checkpoints/author, preserving completed results.
+
+The original checkpoints, random state, environment and baseline details remain unavailable. Further training can improve fidelity but cannot guarantee identical published scores. Current final documents retain the completed reference measurements while this isolated run is active.
 
 ## Run and resume
 

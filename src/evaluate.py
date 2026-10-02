@@ -35,15 +35,23 @@ def load_neural_checkpoint(path: Path, device: torch.device) -> tuple[RetrievalM
 def neural_embeddings(
     model: RetrievalModel, dataset: CaptionFeatureDataset, image_count: int,
     device: torch.device, batch_size: int = 128,
+    captions_per_image: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor, list[int], list[str]]:
+    if captions_per_image not in {1, 5}:
+        raise ValueError("Caption evaluation requires one or five captions per image")
+    if not 2 <= image_count <= len(dataset.images):
+        raise ValueError("Image count must fit the dataset and contain at least two images")
     images = []
     with torch.no_grad():
         for start in range(0, image_count, batch_size):
-            features = torch.from_numpy(np.array(dataset.features[start:start + batch_size], copy=True)).to(device)
+            stop = min(start + batch_size, image_count)
+            features = torch.from_numpy(np.array(dataset.features[start:stop], copy=True)).to(device)
             images.append(model.encode_images(features).cpu())
-        # Match the paper's one held-out caption per image protocol.
-        pairs = [(index, image["captions"][0])
-                 for index, image in enumerate(dataset.images[:image_count])]
+        if any(len(image["captions"]) < captions_per_image for image in dataset.images[:image_count]):
+            raise ValueError("An image has too few captions for the selected evaluation")
+        pairs = [(index, caption)
+                 for index, image in enumerate(dataset.images[:image_count])
+                 for caption in image["captions"][:captions_per_image]]
         captions = []
         for start in range(0, len(pairs), batch_size):
             batch = pairs[start:start + batch_size]
@@ -54,7 +62,10 @@ def neural_embeddings(
             for row, ids in enumerate(encoded):
                 tokens[row, :len(ids)] = torch.tensor(ids)
             captions.append(model.encode_captions(tokens.to(device), lengths).cpu())
-    return torch.cat(images), torch.cat(captions), [index for index, _ in pairs], [caption for _, caption in pairs]
+    image_embeddings, caption_embeddings = torch.cat(images), torch.cat(captions)
+    if len(image_embeddings) != image_count or len(caption_embeddings) != image_count * captions_per_image:
+        raise ValueError("Actual embedding counts do not match the selected evaluation")
+    return image_embeddings, caption_embeddings, [index for index, _ in pairs], [caption for _, caption in pairs]
 
 
 def calculate_ranks(images: torch.Tensor, queries: torch.Tensor, targets: list[int]) -> list[int]:
@@ -95,11 +106,14 @@ def summarize_ranks(ranks: list[int], captions: list[str], image_count: int) -> 
 def evaluate_method(
     cfg: dict, split: str, method: str, checkpoint: Path, max_images: int = 1000,
     model: RetrievalModel | None = None, vocab: dict[str, int] | None = None,
+    captions_per_image: int = 1,
 ) -> dict:
     if split not in {"val", "test"}:
         raise ValueError("Evaluation is restricted to validation and test splits")
     if method not in {"baseline", "baseline_weighted", "gru", "gru_glove", "lstm_glove"}:
         raise ValueError(f"Unknown method: {method}")
+    if method.startswith("baseline") and captions_per_image != 1:
+        raise ValueError("Five separate caption evaluation is restricted to neural methods")
     device = device_for_run()
     if method.startswith("baseline"):
         vocab = load_vocab(project_path(cfg, cfg["data"]["vocab"]))
@@ -137,7 +151,8 @@ def evaluate_method(
             queries = torch.from_numpy(features @ weights)
     else:
         assert model is not None
-        images, queries, targets, captions = neural_embeddings(model, dataset, image_count, device)
+        images, queries, targets, captions = neural_embeddings(
+            model, dataset, image_count, device, captions_per_image=captions_per_image)
     ranks = calculate_ranks(images, queries, targets)
     metrics = summarize_ranks(ranks, captions, image_count)
     metrics.update({"method": method, "split": split, "checkpoint": str(checkpoint)})

@@ -4,7 +4,7 @@ This repository implements the five caption to image retrieval methods in the pr
 
 ## Project status
 
-The final run with the authors' original feature archive completed on 2 October 2026. All three neural models completed 50 epochs. All five methods were evaluated with exactly 1,000 test queries on the same 1,000 image gallery. Recomputing results from the saved checkpoints reproduced every recorded score and both retrieval examples.
+The final run with the authors' original feature archive completed on 2 October 2026. All three neural models completed 50 epochs. All five methods were evaluated with exactly 1,000 test queries on the same 1,000 image gallery. The evaluator was corrected on 2 October to restrict the actual final batch to exactly 1,000 gallery embeddings. The table below uses recomputed scores. A further isolated run using legacy Adam and the released generator convention is in progress with config_author.yaml.
 
 The final presentation is [ML_PROJECT_review.pptx](ML_PROJECT_review.pptx), and the two page write up is [ML_PROJECT_writeup.pdf](ML_PROJECT_writeup.pdf). [VERIFICATION.md](VERIFICATION.md) records measured results and checks. [REPRODUCTION.md](REPRODUCTION.md) describes source details, the comparison with the paper, and unresolved evaluation ambiguity. The repository is private. The owner will grant faculty and TA access separately.
 
@@ -81,14 +81,27 @@ Every row below contains local measurements from the completed reference run. Re
 Method                    R@1     R@10    Mean rank
 Baseline                   9.5%   45.2%     37.06
 Baseline + Weight         11.0%   52.2%     25.64
-GRU                       34.6%   83.1%      9.36
-GRU + GloVe               32.6%   82.9%      9.19
-LSTM + GloVe              27.9%   81.2%      9.39
+GRU                       34.9%   83.4%      9.14
+GRU + GloVe               32.9%   83.1%      9.01
+LSTM + GloVe              28.2%   81.7%      9.18
 ```
 
-GRU achieved the highest measured Recall@1 and Recall@10. GRU + GloVe had the lowest mean rank. Best validation Recall@10 was 87.9% for GRU, 87.6% for GRU + GloVe, and 86.5% for LSTM + GloVe. Validation selected epochs 42, 28, and 24 respectively.
+GRU achieved the highest measured Recall@1 and Recall@10. GRU + GloVe had the lowest mean rank. The original checkpoint selection history recorded validation Recall@10 of 87.9% for GRU, 87.6% for GRU + GloVe, and 86.5% for LSTM + GloVe. Validation selected epochs 42, 28, and 24 respectively. Those historical validation scores used 1,024 actual gallery embeddings because of the corrected boundary bug; they must not be described as a verified 1,000 image validation comparison.
 
-The published neural Recall@10 values are 85.8%, 86.8%, and 86.2%. Our values are lower by 2.7, 3.9, and 5.0 percentage points respectively. The baseline results also differ. Exact paper score reproduction has not been achieved. The original trained checkpoints, random seed, dependency versions, and Table 1 caption selection are unavailable. REPRODUCTION lists the full reference table and measured comparison.
+The published neural Recall@10 values are 85.8%, 86.8%, and 86.2%. Our values are lower by 2.4, 3.7, and 4.5 percentage points respectively. The baseline results also differ. Exact paper score reproduction has not been achieved. The original trained checkpoints, random seed, dependency versions, and Table 1 caption selection are unavailable. REPRODUCTION lists the full reference table and measured comparison.
+
+## Released source evaluation and current reproduction run
+
+The authors' saved logs contain the published GRU + GloVe and LSTM + GloVe scores. Their evaluator uses 5000 caption queries against 1000 images. Using that separate protocol, the completed saved checkpoints measure GRU 85.26%, GRU + GloVe 85.02%, and LSTM + GloVe 83.88% Recall@10. These are 0.54, 1.78, and 2.32 percentage points below the corresponding paper values. They do not replace the 1000 query table above.
+
+The evaluator now checks actual gallery tensor sizes. The earlier final image batch included 24 extra images, and the main table has been corrected. A separate run further matches legacy Adam arithmetic, 886 batch updates per epoch, and the released five caption validation procedure. It is in progress. Its future scores are not claimed as completed results. The final documents presently report the corrected completed reference run.
+
+```powershell
+python -m src.source_evaluation --config config_reference.yaml
+python -m src.reference_run --config config_author.yaml
+```
+
+If the reference baseline checkpoint is unavailable, the author runner fits the baseline from the imported data. See REPRODUCTION for the exact log trace, remaining missing artifacts and checkpoint selection rules.
 
 ## Verification and local files
 

@@ -1,0 +1,45 @@
+# Further source fidelity corrections, isolated from completed measurements.
+# Keras 2.2.4 is a documented legacy convention, not a proven original version.
+seed: 42
+data:
+  root: data/coco
+  karpathy_json: data/coco/dataset_coco.json
+  manifest_dir: data/paper_reference/manifests
+  vocab: data/paper_reference/vocab.json
+  glove: data/glove/glove.6B.300d.txt
+  min_word_frequency: 1
+  max_tokens: 50
+  tokenization: whitespace
+  feature_dir: data/paper_reference/data/coco/images/10crop
+model:
+  image_feature_dim: 4096
+  word_dim: 300
+  embedding_dim: 1024
+  normalize_embeddings: true
+  projection_bias: true
+  recurrent_implementation: keras_legacy
+  caption_padding_length: 50
+  unknown_glove_random: false
+training:
+  batch_size: 128
+  epochs: 50
+  learning_rate: 0.001
+  margin: 0.1
+  num_workers: 0
+  patience: 50
+  eval_max_images: 1000
+  checkpoint_dir: checkpoints/author
+  one_caption_per_image: true
+  validation_images: 1000
+  validation_captions_per_image: 5
+  loss_reduction: sum
+  optimizer_implementation: keras_legacy
+  source_generator: true
+  baseline_checkpoint: checkpoints/reference/baseline.npz
+  paper_checkpoint_epochs:
+    gru_glove: 49
+    lstm_glove: 40
+evaluation:
+  metrics_dir: outputs/author
+  experiment_dir: outputs/author/experiments
+  audit_source_protocol: true

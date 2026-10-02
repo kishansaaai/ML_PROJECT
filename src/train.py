@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
 from .config import device_for_run, load_config, project_path, set_seed
-from .dataset import CaptionFeatureDataset, RandomCaptionDataset, collate_pairs
+from .dataset import CaptionFeatureDataset, RandomCaptionDataset, SourceBatchSampler, collate_pairs
 from .evaluate import evaluate_method
 from .loss import ranking_loss
 from .model import RetrievalModel
@@ -52,9 +52,13 @@ def train(cfg: dict, variant: str, epochs: int | None = None, batch_size: int | 
     val_data = CaptionFeatureDataset(cfg, "val", vocab)
     size = batch_size or cfg["training"]["batch_size"]
     image_sampling = cfg["training"].get("one_caption_per_image", False)
-    train_loader = DataLoader(RandomCaptionDataset(train_data) if image_sampling else train_data,
-                              batch_size=size, shuffle=True, drop_last=image_sampling,
-                              num_workers=cfg["training"]["num_workers"], collate_fn=collate_pairs)
+    if cfg["training"].get("source_generator", False):
+        train_loader = DataLoader(train_data, batch_sampler=SourceBatchSampler(train_data, size),
+                                  num_workers=0, collate_fn=collate_pairs)
+    else:
+        train_loader = DataLoader(RandomCaptionDataset(train_data) if image_sampling else train_data,
+                                  batch_size=size, shuffle=True, drop_last=image_sampling,
+                                  num_workers=cfg["training"]["num_workers"], collate_fn=collate_pairs)
     validation_images = cfg["training"].get("validation_images", len(val_data.images))
     val_indices = [index for index, (image_index, _) in enumerate(val_data.pairs)
                    if image_index < validation_images]
@@ -78,7 +82,15 @@ def train(cfg: dict, variant: str, epochs: int | None = None, batch_size: int | 
         len(vocab), cfg["model"]["image_feature_dim"], cfg["model"]["word_dim"],
         cfg["model"]["embedding_dim"], recurrent_type, glove, **model_options,
     ).to(device)
-    optimizer = torch.optim.Adam(
+    optimizer_name = cfg["training"].get("optimizer_implementation", "torch")
+    if optimizer_name == "keras_legacy":
+        from .legacy_optimizer import LegacyAdam
+        optimizer_type = LegacyAdam
+    elif optimizer_name == "torch":
+        optimizer_type = torch.optim.Adam
+    else:
+        raise ValueError("Unsupported optimizer implementation")
+    optimizer = optimizer_type(
         model.parameters(),
         lr=learning_rate if learning_rate is not None else cfg["training"]["learning_rate"],
     )
@@ -100,6 +112,8 @@ def train(cfg: dict, variant: str, epochs: int | None = None, batch_size: int | 
             raise ValueError("Training checkpoint does not match the selected variant and vocabulary")
         if previous.get("model_options", {}) != model_options:
             raise ValueError("Training checkpoint uses different model options")
+        if previous.get("optimizer_implementation", "torch") != optimizer_name:
+            raise ValueError("Cannot resume with a different optimizer implementation")
         model.load_state_dict(previous["model"])
         optimizer.load_state_dict(previous["optimizer"])
         if learning_rate is not None:
@@ -127,10 +141,13 @@ def train(cfg: dict, variant: str, epochs: int | None = None, batch_size: int | 
         metrics = evaluate_method(
             cfg, "val", variant, best_path,
             cfg["training"]["eval_max_images"], model=model, vocab=vocab,
+            captions_per_image=cfg["training"].get("validation_captions_per_image", 1),
         )
         recall = metrics["r_at_10"]
         history.append({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss,
-                        "val_r_at_10": recall})
+                        "val_r_at_10": recall, "training_batches": len(train_loader),
+                        "validation_gallery_images": metrics["gallery_images"],
+                        "validation_queries": metrics["queries"]})
         improved = recall > best_recall or (recall == best_recall and val_loss < best_val_loss)
         if improved:
             best_recall, best_val_loss, stale = recall, val_loss, 0
@@ -147,6 +164,7 @@ def train(cfg: dict, variant: str, epochs: int | None = None, batch_size: int | 
             "max_tokens": train_data.max_tokens,
             "training_config": cfg["training"],
             "learning_rate": optimizer.param_groups[0]["lr"],
+            "optimizer_implementation": optimizer_name,
             "epoch": epoch, "best_recall": best_recall, "best_val_loss": best_val_loss,
             "history": history,
         }
@@ -154,6 +172,10 @@ def train(cfg: dict, variant: str, epochs: int | None = None, batch_size: int | 
             temporary = best_path.with_suffix(".pt.tmp")
             torch.save(state, temporary)
             temporary.replace(best_path)
+        paper_epoch = cfg["training"].get("paper_checkpoint_epochs", {}).get(variant)
+        if epoch == paper_epoch:
+            paper_path = checkpoint_dir / f"{variant}_epoch_{epoch}.pt"
+            torch.save(state, paper_path)
         last_state = {**state, "optimizer": optimizer.state_dict(), "stale": stale,
                       "rng": {"python": random.getstate(), "numpy": np.random.get_state(),
                               "torch": torch.get_rng_state(),

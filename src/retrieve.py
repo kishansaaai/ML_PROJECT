@@ -42,13 +42,16 @@ def retrieve(cfg: dict, method: str, checkpoint: Path, query: str,
             device = device_for_run()
             projected = []
             for start in range(0, count, 128):
-                features = torch.from_numpy(np.array(dataset.features[start:start + 128], copy=True)).to(device)
+                stop = min(start + 128, count)
+                features = torch.from_numpy(np.array(dataset.features[start:stop], copy=True)).to(device)
                 projected.append(model.encode_images(features).cpu())
             images = torch.cat(projected)
             ids = encode_caption(query, vocab, dataset.max_tokens, dataset.tokenization)
             query_embedding = model.encode_captions(
                 torch.tensor([ids], dtype=torch.long, device=device), torch.tensor([len(ids)])
             ).cpu()
+        if len(images) != count:
+            raise ValueError("Actual retrieval gallery does not match the selected image count")
         scores = similarity_matrix(images, query_embedding)[:, 0]
         values, indices = scores.topk(min(top_k, count))
     root = project_path(cfg, cfg["data"]["root"])
