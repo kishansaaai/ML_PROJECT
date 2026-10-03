@@ -1,6 +1,35 @@
 # Verification and measured results
 
-## Final original feature run (2 October 2026)
+## Final author convention run (3 October 2026)
+
+Training and final evaluation completed with config_author.yaml on verified original features. All three recurrent models completed 50 epochs with legacy Adam at 0.001, batch size 128, 886 full batches per epoch and summed ranking loss with margin 0.1. All 150 epoch records have exactly 1,000 validation images and 5,000 caption queries, finite losses and complete updates. All saved best and last model tensors are finite. Validation selected epochs 46, 46, and 38, with Recall@10 of 86.64%, 87.38%, and 85.46% for GRU, GRU + GloVe, and LSTM + GloVe respectively.
+
+All five declared test methods were independently recomputed from the saved models and matched the recorded metrics. Each has exactly 1,000 actual gallery embeddings and 1,000 queries. The pooled baseline combines five captions per query. Standard methods use one caption per image.
+
+```text
+Method                    R@1     R@10    Mean rank
+Baseline                  9.5%   45.2%     37.06
+Baseline + Weight        11.0%   52.2%     25.64
+GRU                      34.5%   82.8%      9.13
+GRU + GloVe              34.5%   82.6%      9.70
+LSTM + GloVe             31.7%   83.1%      8.64
+```
+
+Eight separately labelled released evaluator comparisons use 5,000 queries each. Their saved rank arrays were checked against Recall@1, Recall@10 and mean rank. They include every validation selected and final epoch neural checkpoint, plus predetermined GRU + GloVe epoch 49 and LSTM + GloVe epoch 40. Their full table is in REPRODUCTION. No test score selected a setting or checkpoint.
+
+The final retrieval examples were regenerated with the corrected gallery boundary. Both top five image orders were reproduced, scores agreed within floating point tolerance and all returned paths exist. GRU + GloVe returns COCO 483108 first for the cyclist beside a train query and COCO 255209 first for dog. The final run's comparison CSV, validation curves, caption length analysis and short and long retrieval figures are under outputs/author/experiments. Data, checkpoints and generated measurements remain excluded from Git.
+
+The source fidelity and pipeline tests passed after the source corrections recorded in the historical sections below. Final verification checks actual dimensions, complete histories, source rank summaries and retrieval rankings. Missing original checkpoints, random state, dependencies and baseline code still prevent a claim of exact score reproduction.
+
+## Historical verification records
+
+Final delivery checks on 3 October 2026 confirmed that both PDF pages are well filled, contain only black text and rules, and have no visible dash characters or draft labels. All ten PowerPoint slides were rendered and visually inspected. Their backgrounds are white and both protocol tables match the final measured values. The recorded example is labelled rank 1. Package and layout checks pass, including the editable results table. README prose has no dash characters and executable command flags remain valid.
+
+The authors' unchanged t2i evaluator was also executed with independently computed NumPy distances for the final GRU + GloVe checkpoint. Every one of its 5,000 ranks matched the supplementary evaluator, with Recall@10 of 85.04% and mean rank 8.1462. Verification records are stored locally under outputs/author and remain excluded from Git.
+
+The following sections preserve earlier measurements, model selections and document checks. They are not the final author convention results reported above.
+
+## Earlier reference run (2 October 2026)
 
 Training and final evaluation completed on the full COCO split using the authors' original feature archive and `config_reference.yaml`. The archive contains 113,287 training images and 5,000 images in each held out split, with exactly five captions per image. All feature row identities were verified against Karpathy captions. The vocabulary contains 27,011 entries and GloVe initialized 22,061 entries. Embeddings are normalized and legacy Keras recurrent equations are used.
 
@@ -33,7 +62,7 @@ The actual gallery boundary was corrected in evaluation and live retrieval, and 
 
 The authors' original t2i function was executed unchanged on an independently computed NumPy distance matrix for the GRU + GloVe saved checkpoint. All 5000 query ranks exactly matched the supplementary evaluator, including Recall@10 of 85.02% and mean rank 7.824. Both live retrieval examples were independently rechecked against the corrected 1000 image gallery and retained their top five image order. The updated PDF and PowerPoint were rendered and visually inspected on every page and slide, including the separate source protocol comparison. Their displayed table matches the corrected measurements.
 
-A further isolated author convention run is active using config_author.yaml, with corrected gallery dimensions, legacy Adam, 886 updates per epoch and five caption validation. It retains preset author log epochs independently of local test results. Current documents contain only the completed reference measurements. See REPRODUCTION for the evidence trace and remaining limitations.
+The subsequent author convention run is complete and documented above. Its final documents replace these earlier reference deliveries. The older measurements remain preserved for comparison.
 
 ## Earlier local feature run (30 September 2026)
 
