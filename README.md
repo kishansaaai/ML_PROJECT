@@ -8,6 +8,16 @@ The final author convention run completed on 3 October 2026. All three neural mo
 
 The presentation is [ML_PROJECT_review.pptx](ML_PROJECT_review.pptx), and the two page write up is [ML_PROJECT_writeup.pdf](ML_PROJECT_writeup.pdf). [VERIFICATION.md](VERIFICATION.md) records checks and measurements. [REPRODUCTION.md](REPRODUCTION.md) compares every protocol with the paper and documents the missing original artifacts. The repository is private. The owner will grant faculty and TA access separately.
 
+## Optional local interface
+
+The Streamlit page runs the saved GRU + GloVe checkpoint on the existing COCO image gallery. After installing the requirements and preparing the data, start it from the repository root:
+
+```powershell
+python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
+```
+
+Open http://127.0.0.1:8501 in a browser, enter a caption, and select the number of results. The page shows ranked images from the same 1,000 image test gallery used by the terminal retrieval command.
+
 ## Data and representations
 
 The Karpathy split contains 113,287 training images, 5,000 validation images, and 5,000 test images. The [original feature archive](https://www.cs.toronto.edu/~vendrov/order/coco.zip), linked by the [authors](https://github.com/giacomolamberti90/CS229_project), supplies five captions per image and normalized 4,096 dimensional VGG 19 fc7 features from ten crops. Every feature row was checked against the Karpathy caption order. The archive checksum is in REPRODUCTION.
