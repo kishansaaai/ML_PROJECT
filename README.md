@@ -416,11 +416,36 @@ Each method also has its own test metrics JSON under `outputs/author`. Earlier r
 
 The original feature archive can be removed after a successful verified import if another download is acceptable later. Keep the extracted feature arrays and manifests for retrieval. Keep trained checkpoints to avoid retraining, and keep photographs for image display. The archive itself is not a trained model and is not stored in GitHub.
 
+## Caption input reliability update
+
+On 5 October 2026, interactive retrieval gained vocabulary aware input cleaning. Existing vocabulary entries are preserved. If a word is unknown, the code tries its lowercase form and forms with surrounding punctuation removed, accepting a replacement only when that replacement exists in the saved vocabulary. This lets inputs such as `Dog`, `dog!`, and `dog` use the same known word representation while retaining meaningful punctuation inside known words. The browser and terminal retrieval use this cleaning with the original whitespace vocabulary.
+
+The browser warns about descriptions containing only punctuation, descriptions with no recognized words, and input exceeding 50 words. Unknown words are not assigned invented meanings. A partly recognized description can still be searched using its recognized words and the model's unknown token.
+
+A controlled validation check used the existing GRU + GloVe checkpoint, the first caption of each of the first 1,000 validation images, exactly 1,000 gallery images, and exactly 1,000 queries per condition. Each altered caption was converted to title case and given a trailing exclamation mark. The same model and gallery were used before and after input cleaning. No training was performed.
+
+<table>
+<tr><th>Validation input condition</th><th>Recall@1</th><th>Recall@10</th><th>Mean rank</th></tr>
+<tr><td>Clean original captions</td><td>37.5%</td><td>87.9%</td><td>6.433</td></tr>
+<tr><td>Altered captions before input cleaning</td><td>0.1%</td><td>1.0%</td><td>499.904</td></tr>
+<tr><td>Altered captions after input cleaning</td><td>37.5%</td><td>87.9%</td><td>6.433</td></tr>
+</table>
+
+All 1,000 altered caption encodings were restored to the clean encodings, and their image rankings matched exactly. All 1,000 original caption encodings were preserved. These measurements demonstrate recovery from the specified capitalization and punctuation changes. They are a controlled input robustness check, not a replacement for the paper comparison. The main GRU + GloVe test Recall@10 remains 82.6%, and its separately labelled released evaluator test Recall@10 remains 85.04%. Training, checkpoint selection, and benchmark evaluation tokenization are unchanged.
+
+Reproduce this validation check without training:
+
+```powershell
+.\.venv\Scripts\python.exe -m tests.query_validation --config config_author.yaml
+```
+
+The measured conditions and individual ranks are saved locally to `outputs/input_validation/query_normalization.json` and excluded from Git. Four focused regression tests and five Streamlit UI checks passed for vocabulary preservation, restored retrieval, gallery boundaries, caption targets, and input warnings.
+
 ## Known limitations and troubleshooting
 
-Use short lowercase English descriptions with simple wording. The vocabulary matches exact whitespace tokens, so capitalization and punctuation can affect whether a token is known. Only the first 50 tokens are encoded. Extra text is silently truncated by the current implementation.
+Use short English descriptions with simple wording. Only the first 50 tokens are encoded. The browser warns when an input exceeds 50 words.
 
-Unknown words, emoji, or punctuation only input can still return ranked images. These outputs should not be interpreted as evidence that the model understood the input. The gallery also contains only 1,000 images, so a requested scene might not be available. Rankings are not always semantically correct; for example, a tested cat on a couch query ranked an image of dogs on a couch first.
+Descriptions containing no recognized words are rejected. Unknown words and emoji within a partly recognized description can still reduce retrieval quality. The gallery also contains only 1,000 images, so a requested scene might not be available. Rankings are not always semantically correct; for example, a tested cat on a couch query ranked an image of dogs on a couch first.
 
 Each UI search starts a retrieval process and loads the saved model. Observed search times on the prepared local machine were roughly 8 to 14 seconds. Speed varies with the computer. The interface can also log a Streamlit sizing deprecation warning under the currently tested version; this did not prevent the tested searches from completing.
 

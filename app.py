@@ -68,7 +68,13 @@ if st.button("🔍 Search Images", use_container_width=True):
     if not query.strip():
         st.warning("Please enter an image description.")
 
+    elif not any(character.isalnum() for character in query):
+        st.warning("Please enter an image description containing words.")
+
     else:
+
+        if len(query.split()) > 50:
+            st.warning("Only the first 50 words are used for this search.")
 
         with st.spinner("Searching the image gallery..."):
 
@@ -99,12 +105,14 @@ if st.button("🔍 Search Images", use_container_width=True):
 
         if result.returncode != 0:
 
-            st.error("An error occurred while running the model.")
-
-            st.code(
-                result.stderr,
-                language="text"
-            )
+            if "Query contains no known words" in result.stderr:
+                st.warning("The model could not recognize any words in this description. Try a simple English description.")
+            else:
+                st.error("An error occurred while running the model.")
+                st.code(
+                    result.stderr,
+                    language="text"
+                )
 
         else:
 

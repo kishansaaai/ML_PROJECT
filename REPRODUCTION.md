@@ -1,5 +1,11 @@
 # Reproduction of the published results
 
+## Interactive query update
+
+On 5 October 2026, interactive retrieval gained vocabulary aware recovery of capitalization and surrounding punctuation. The change applies to typed retrieval queries. Training, vocabulary construction, checkpoint selection, and both benchmark evaluation protocols retain their existing source conventions and reported results. No retraining was performed.
+
+A separately labelled controlled check on 1,000 validation captions restored the rankings lost when those captions were converted to title case and given a trailing exclamation mark. The measured conditions and limitations are in README and VERIFICATION. These input robustness results are not substituted for the paper comparison.
+
 ## Current status
 
 The final author convention run completed on 3 October 2026. All three neural models completed 50 epochs. Final checkpoints are under checkpoints/author and measurements under outputs/author. The write up, presentation and README report this run. The earlier completed reference run is preserved under checkpoints/reference and outputs/reference. Published scores have not been reproduced exactly.

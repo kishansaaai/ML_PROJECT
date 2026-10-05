@@ -1,5 +1,24 @@
 # Verification and measured results
 
+## Caption input recovery (5 October 2026)
+
+The saved GRU + GloVe checkpoint was evaluated without training on the first 1,000 validation images, using their first caption and exactly 1,000 queries per condition. This controlled robustness check changes each caption to title case and appends an exclamation mark. It keeps the checkpoint, gallery, target image mapping, and ranking calculation fixed.
+
+```text
+Validation condition              R@1      R@10     Mean rank
+Clean original captions           37.5%    87.9%       6.433
+Altered input before cleaning      0.1%     1.0%     499.904
+Altered input after cleaning      37.5%    87.9%       6.433
+```
+
+Vocabulary aware query cleaning restored all 1,000 altered caption encodings and their exact clean caption rankings. It preserved all 1,000 original caption encodings. This is recovery from the specified input formatting changes, not an increase in the original clean test benchmark. Existing test results, pretrained resources, trained parameters, and checkpoint selection remain unchanged. Training and benchmark evaluation still use the original source tokenization.
+
+Four focused regression checks passed. They cover preservation of exact vocabulary entries and unknown words, recovered retrieval using actual GRU forward calculations, rejection of completely unknown queries, the final partial gallery batch, and five caption target ordering. The checks used forward calculations only and did not train a model.
+
+Five real Streamlit application checks passed with no app errors: a clean query, its capitalized and punctuated version, punctuation only input, completely unknown words, and a 51 word input. The two equivalent natural language queries returned identical five image captions. Invalid input displayed friendly warnings, and the long input displayed the caption limit warning.
+
+The reproducible check is tests/query_validation.py. Its measurements and individual ranks are stored locally in outputs/input_validation/query_normalization.json; UI checks are in outputs/input_validation/ui_check.json. Generated measurement files remain excluded from Git.
+
 ## Final author convention run (3 October 2026)
 
 Training and final evaluation completed with config_author.yaml on verified original features. All three recurrent models completed 50 epochs with legacy Adam at 0.001, batch size 128, 886 full batches per epoch and summed ranking loss with margin 0.1. All 150 epoch records have exactly 1,000 validation images and 5,000 caption queries, finite losses and complete updates. All saved best and last model tensors are finite. Validation selected epochs 46, 46, and 38, with Recall@10 of 86.64%, 87.38%, and 85.46% for GRU, GRU + GloVe, and LSTM + GloVe respectively.

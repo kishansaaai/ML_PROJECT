@@ -13,7 +13,7 @@ from .config import device_for_run, load_config, project_path
 from .dataset import CaptionFeatureDataset
 from .evaluate import load_neural_checkpoint
 from .model import similarity_matrix
-from .preprocessing import encode_caption, load_vocab
+from .preprocessing import encode_caption, load_vocab, normalize_retrieval_query
 
 
 def retrieve(cfg: dict, method: str, checkpoint: Path, query: str,
@@ -32,6 +32,11 @@ def retrieve(cfg: dict, method: str, checkpoint: Path, query: str,
         if variant != method:
             raise ValueError(f"Checkpoint is {variant}, requested {method}")
     dataset = CaptionFeatureDataset(cfg, split, vocab)
+    if dataset.tokenization == "whitespace":
+        query = normalize_retrieval_query(query, vocab)
+    ids = encode_caption(query, vocab, dataset.max_tokens, dataset.tokenization)
+    if all(token in {vocab["<pad>"], vocab["<unk>"]} for token in ids):
+        raise ValueError("Query contains no known words within the model's caption limit")
     count = min(max_images, len(dataset.images))
     with torch.no_grad():
         if method == "baseline":
@@ -46,7 +51,6 @@ def retrieve(cfg: dict, method: str, checkpoint: Path, query: str,
                 features = torch.from_numpy(np.array(dataset.features[start:stop], copy=True)).to(device)
                 projected.append(model.encode_images(features).cpu())
             images = torch.cat(projected)
-            ids = encode_caption(query, vocab, dataset.max_tokens, dataset.tokenization)
             query_embedding = model.encode_captions(
                 torch.tensor([ids], dtype=torch.long, device=device), torch.tensor([len(ids)])
             ).cpu()

@@ -17,13 +17,49 @@ from src.legacy_optimizer import LegacyAdam
 from src.source_evaluation import source_ranks
 from src.loss import ranking_loss
 from src.model import RetrievalModel
-from src.preprocessing import load_vocab
+from src.preprocessing import encode_caption, load_vocab, normalize_retrieval_query
 from src.train import train
 from src.retrieve import retrieve
 from tests.smoke_test import create_fixture
 
 
 class ReferenceTests(unittest.TestCase):
+    def test_query_normalization_preserves_vocabulary_and_unknown_words(self):
+        vocab = {"<pad>": 0, "<unk>": 1, "US": 2, "x-ray": 3, "dog's": 4}
+        original = "US x-ray dog's"
+        self.assertEqual(normalize_retrieval_query(original, vocab), original)
+        self.assertEqual(normalize_retrieval_query("“US” X-ray DOG'S.", vocab), original)
+        self.assertEqual(normalize_retrieval_query("Zxqv!", vocab), "Zxqv!")
+        self.assertEqual(normalize_retrieval_query("!!! ???", vocab), "")
+
+    def test_retrieval_case_and_punctuation_keep_the_matching_image(self):
+        torch.manual_seed(16)
+        vocab = {"<pad>": 0, "<unk>": 1, "a": 2, "dog": 3, "catching": 4, "frisbee": 5}
+        model = RetrievalModel(len(vocab), 4, 3, 4, "gru", normalize_embeddings=True,
+                               recurrent_implementation="keras_legacy", caption_padding_length=8)
+        with torch.no_grad():
+            model.image_projection.weight.copy_(torch.eye(4))
+            features = model.encode_captions(torch.tensor([[2, 3, 4, 2, 5], [1, 1, 1, 1, 1]]),
+                                             torch.tensor([5, 5])).numpy()
+        dataset = SimpleNamespace(features=features,
+                                  images=[{"image_id": i, "path": f"{i}.jpg", "captions": ["a dog catching a frisbee"]}
+                                          for i in range(2)], max_tokens=8, tokenization="whitespace")
+        cfg = {"_root": ".", "data": {"root": "."}}
+        # Training/evaluation encoding retains the original source convention.
+        self.assertEqual(encode_caption("A Dog Catching A Frisbee", vocab, 8, "whitespace"), [1] * 5)
+        with patch("src.retrieve.load_neural_checkpoint", return_value=(model, vocab, "gru")), \
+             patch("src.retrieve.CaptionFeatureDataset", return_value=dataset), \
+             patch("src.retrieve.device_for_run", return_value=torch.device("cpu")):
+            original = retrieve(cfg, "gru", Path("unused"), "a dog catching a frisbee", top_k=2, max_images=2)
+            for query in ("A Dog Catching A Frisbee!", "“A Dog Catching A Frisbee!”"):
+                recovered = retrieve(cfg, "gru", Path("unused"), query, top_k=2, max_images=2)
+                self.assertEqual([row["image_id"] for row in recovered], [row["image_id"] for row in original])
+                self.assertEqual(recovered[0]["image_id"], 0)
+                np.testing.assert_allclose([row["score"] for row in recovered], [row["score"] for row in original], atol=1e-6)
+            for query in ("!!! ???", "zxqv qqqrrr", "<pad>"):
+                with self.assertRaisesRegex(ValueError, "no known words"):
+                    retrieve(cfg, "gru", Path("unused"), query, max_images=2)
+
     def test_retrieval_excludes_candidate_outside_gallery(self):
         vocab = {"<pad>": 0, "<unk>": 1, "word": 2}
         dataset = SimpleNamespace(features=np.eye(4, dtype=np.float32),
