@@ -1,5 +1,17 @@
 # Verification and measured results
 
+## Completed model extension, 5 October 2026
+
+The authorized bidirectional GRU extension completed 31 epochs with preset early stopping. Each epoch used 113,287 training images, one sampled caption per image and 443 batches. All losses and saved parameters are finite. Validation selected epoch 23. A fixed validation weight grid selected 75% original GRU + GloVe and 25% new bidirectional model, with validation Recall@10 of 89.64%. The original model's validation score is 87.38%, and the new encoder's is 87.68%.
+
+On the same 1,000 test images, the new encoder measured Recall@10 of 85.0% with 1,000 queries and 87.34% with 5,000 queries. The selected combination measured 85.5% and 88.00% respectively, compared with the original model's 82.6% and 85.04%. The 88.00% result is 1.20 percentage points above the paper's reported 86.8% for GRU + GloVe on our reconstructed released evaluator. The original Table 1 caption selection and random state remain unknown. The full comparison is in IMPROVEMENT.md.
+
+All 12,000 saved extension ranks independently reproduce their counts, Recall@1, Recall@10 and mean rank. Direct squared distances exactly reproduce the 5,000 query rankings for each extension encoder. Both configurations use the same manifest, feature arrays, vocabulary, caption limit and tokenization. The gallery identity digest is identical for both extension methods. Actual checkpoint output dimensions are 1,024 and 2,048, with unit normalized representations. The validation selection plan predates the new test evaluation, and the chosen weights maximize the specified validation ordering.
+
+Seven focused tests passed, including exact resumption, padding and checkpoint compatibility, finite gradients, duplicate positive exclusion, independent rankings, ensemble distance equivalence and the exclusive writer lock. Five updated application checks passed: new model clean query, equivalent caption formatting, punctuation only input, completely unknown words, and original model clean query. All saved retrieval paths exist. Local evidence is under outputs/improved/verification.json and the individual measured rank files. Checkpoints and generated measurements remain excluded from Git.
+
+Final delivery checks on 5 October 2026 confirmed exactly two well filled PDF pages containing only black text and rules, and fourteen PowerPoint slides with white backgrounds. Both artifacts were rendered and visually inspected. Every original and extension score matches the measured records, and the 1,000 query and 5,000 query protocols are clearly labelled. There are no draft labels or dash characters in the PDF, visible slide text or speaker notes. Package and layout checks passed. The repository and delivery folder copies are identical. The local artifact receipt is outputs/improved/artifact_verification.json. README, REPRODUCTION and IMPROVEMENT prose also passed the dash check; runnable command flags remain valid.
+
 ## Caption input recovery (5 October 2026)
 
 The saved GRU + GloVe checkpoint was evaluated without training on the first 1,000 validation images, using their first caption and exactly 1,000 queries per condition. This controlled robustness check changes each caption to title case and appends an exclamation mark. It keeps the checkpoint, gallery, target image mapping, and ranking calculation fixed.

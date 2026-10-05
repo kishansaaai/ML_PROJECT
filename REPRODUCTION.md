@@ -1,5 +1,13 @@
 # Reproduction of the published results
 
+## Separately authorized model extension
+
+On 5 October 2026 a new bidirectional GRU and a validation selected combination extended the original project. These are additional models rather than changes to the five original paper method scores. The new model completed 31 epochs under preset early stopping and selected epoch 23 using validation. The combined encoder uses 75% original model distance and 25% new model distance, chosen from a fixed validation grid before its test measurement.
+
+The new encoder measured 87.34% Recall@10 on the 1,000 image, 5,000 query released evaluator protocol. The combined encoder measured 88.00%, compared with 85.04% for the original local GRU + GloVe and 86.8% reported by the paper. This is 1.20 percentage points above the paper value on our reconstructed evaluator. Missing original caption selection details, random state and checkpoints still prevent a claim of exact Table 1 protocol identity or a controlled comparison with the original saved model.
+
+The main 1,000 query measurements are 85.0% for the new encoder and 85.5% for the combination, versus 82.6% for the original GRU + GloVe. These values remain separately labelled. The same data, feature arrays, vocabulary and gallery order are used throughout. IMPROVEMENT.md documents the completed experiment and verification. The original results below remain the reproduction record.
+
 ## Interactive query update
 
 On 5 October 2026, interactive retrieval gained vocabulary aware recovery of capitalization and surrounding punctuation. The change applies to typed retrieval queries. Training, vocabulary construction, checkpoint selection, and both benchmark evaluation protocols retain their existing source conventions and reported results. No retraining was performed.

@@ -1,0 +1,37 @@
+# Separate extension authorized on 5 October 2026. Original results are preserved.
+seed: 42
+data:
+  root: data/coco
+  karpathy_json: data/coco/dataset_coco.json
+  manifest_dir: data/paper_reference/manifests
+  vocab: data/paper_reference/vocab.json
+  glove: data/glove/glove.6B.300d.txt
+  max_tokens: 50
+  tokenization: whitespace
+  feature_dir: data/paper_reference/data/coco/images/10crop
+model:
+  image_feature_dim: 4096
+  word_dim: 300
+  embedding_dim: 1024
+  hidden_dim: 512
+  dropout: 0.1
+training:
+  batch_size: 256
+  epochs: 50
+  minimum_epochs: 20
+  patience: 8
+  learning_rate: 0.0002
+  weight_decay: 0.0001
+  learning_rate_milestones: [15, 30, 42]
+  learning_rate_gamma: 0.5
+  gradient_clip: 2.0
+  temperature: 0.07
+  margin: 0.2
+  hard_negative_weight: 0.25
+  hard_negative_warmup_epochs: 3
+  validation_images: 1000
+  validation_captions_per_image: 5
+  checkpoint_dir: checkpoints/improved
+evaluation:
+  gallery_images: 1000
+  metrics_dir: outputs/improved

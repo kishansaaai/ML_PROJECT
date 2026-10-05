@@ -1,10 +1,16 @@
 # Neural Caption Image Retrieval
 
-Search a COCO image gallery using a natural language description. This project implements the five retrieval methods described in the CS229 project by Qian and Lamberti and provides a local Streamlit interface for demonstrating the trained GRU + GloVe model.
+Search a COCO image gallery using a natural language description. This project implements the five retrieval methods described in the CS229 project by Qian and Lamberti, adds a separately authorized model improvement experiment, and provides a local Streamlit interface for demonstrating the trained models.
 
 The project connects an image representation and a caption representation in a shared space. Given a caption, it ranks the available images by how closely their representations match the caption. It retrieves existing images from the gallery.
 
 ## Current project status
+
+The improvement experiment completed on 5 October 2026. A new bidirectional GRU trained for 31 epochs, stopping according to the preset validation patience rule. Validation selected epoch 23. Combining it with the original GRU + GloVe using weights chosen from validation data increased measured test Recall@10 from 85.04% to 88.00% on the released evaluator protocol. This protocol contains 1,000 gallery images and 5,000 separate caption queries. On the main 1,000 query protocol, Recall@10 increased from 82.6% to 85.5%.
+
+The 88.00% measurement is 1.20 percentage points above the paper's reported GRU + GloVe value of 86.8%. This is a result for the new model combination on our reconstructed released evaluator. The original paper's exact Table 1 caption selection and random state remain unavailable, so this is not a claim of exact experimental reproduction or a general performance advantage on every dataset.
+
+The interface defaults to the improved combined model when its verified local result and checkpoint are available. The original GRU + GloVe remains selectable. Five application checks passed for the updated interface, including equivalent caption formatting and invalid input handling.
 
 The final author convention training run completed on 3 October 2026 using `config_author.yaml`. GRU, GRU + GloVe, and LSTM + GloVe each completed 50 epochs. All five methods were evaluated on exactly 1,000 test images with exactly 1,000 queries per method. A separate evaluation follows the released source convention with 5,000 caption queries for each neural checkpoint.
 
@@ -15,6 +21,8 @@ The local interface was checked with 28 input cases. Searches returned the reque
 Exact numerical reproduction of the paper has not been achieved. All scores in the measured results sections below come from the local completed run.
 
 ## Project documents
+
+The completed improvement experiment uses a bidirectional GRU, training that emphasizes confusing incorrect matches, and a combination chosen using validation data. It uses the same COCO splits and verified VGG features. See [Model improvement experiment](IMPROVEMENT.md) for the architecture, settings, measured results, comparison protocol and reproducible commands.
 
 1. [Presentation](ML_PROJECT_review.pptx): the final review slide deck.
 2. [Two page write up](ML_PROJECT_writeup.pdf): the problem, dataset, approach, implementation, and conclusions.
@@ -36,7 +44,31 @@ The GitHub repository is private. The owner will provide faculty and Teaching As
 
 The weighted baseline receives five captions for each query. The other methods receive one caption per query in the main document protocol. This difference in available query information should be considered when comparing scores.
 
-The Streamlit interface demonstrates GRU + GloVe. The terminal evaluation supports all five methods. Interactive single caption retrieval supports Baseline, GRU, GRU + GloVe, and LSTM + GloVe. The pooled weighted baseline is evaluated through the evaluation command because its query requires five held out captions.
+The Streamlit interface demonstrates the improved combined model and the original GRU + GloVe. Terminal evaluation supports the five original methods, `bigru_glove` for the new bidirectional GRU, and `ensemble_glove` for the selected combination. Interactive single caption retrieval supports Baseline, GRU, GRU + GloVe, LSTM + GloVe and both extension methods. The pooled weighted baseline is evaluated through the evaluation command because its query requires five held out captions.
+
+## Measured model improvement
+
+Every row below uses exactly 1,000 test gallery images. The two caption query protocols are reported separately. Recall@10 is the percentage of queries whose correct image appears in the first ten results.
+
+<table>
+<tr><th>Model</th><th>Caption queries</th><th>Recall@1</th><th>Recall@10</th><th>Mean rank</th></tr>
+<tr><td>Original GRU + GloVe</td><td>1,000</td><td>34.5%</td><td>82.6%</td><td>9.699</td></tr>
+<tr><td>New bidirectional GRU + GloVe</td><td>1,000</td><td>36.5%</td><td>85.0%</td><td>8.666</td></tr>
+<tr><td>Combined model</td><td>1,000</td><td>38.6%</td><td>85.5%</td><td>8.174</td></tr>
+<tr><td>Original GRU + GloVe</td><td>5,000</td><td>36.64%</td><td>85.04%</td><td>8.1462</td></tr>
+<tr><td>New bidirectional GRU + GloVe</td><td>5,000</td><td>38.46%</td><td>87.34%</td><td>7.1098</td></tr>
+<tr><td>Combined model</td><td>5,000</td><td>41.20%</td><td>88.00%</td><td>6.5698</td></tr>
+</table>
+
+The combined model uses 75% of the original model distance and 25% of the new model distance. These weights maximize validation Recall@10 over the fixed choices recorded before test evaluation. Its validation Recall@10 is 89.64%. Each query supplies one caption in both protocols. The combination does not pool the five test captions or use their target image labels at inference.
+
+To demonstrate the improved model directly:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.retrieve --config config_improved.yaml --method ensemble_glove --query "a guy riding a bike next to a train"
+```
+
+The new model reads captions in both directions, pools its word states and final states, and learns a nonlinear mapping of the existing VGG features. Its training combines a contrastive objective with a penalty for confusing incorrect matches. The image feature extractor remains the original pretrained VGG 19. The original five method measurements below remain unchanged and are labelled as the paper reproduction.
 
 ## Dataset and representations
 
@@ -69,11 +101,13 @@ ML_PROJECT/
     download_gallery.py
     requirements.txt
     config_author.yaml
+    config_improved.yaml
     config_reference.yaml
     config.yaml
     README.md
     VERIFICATION.md
     REPRODUCTION.md
+    IMPROVEMENT.md
     ML_PROJECT_writeup.pdf
     ML_PROJECT_review.pptx
     src/
@@ -85,6 +119,9 @@ ML_PROJECT/
         features.py
         baseline.py
         model.py
+        improved_model.py
+        improve_run.py
+        improve_select.py
         legacy_recurrent.py
         legacy_optimizer.py
         loss.py
@@ -98,19 +135,21 @@ ML_PROJECT/
     tests/
         smoke_test.py
         reference_test.py
+        improved_test.py
 ```
 
 `app.py` displays the caption input and ranked images. It invokes the same retrieval module used by the terminal demo. `download_gallery.py` downloads photographs referenced by the prepared test manifest.
 
 The preparation modules download or import data, verify feature identities, and create manifests and vocabulary files. The dataset module pairs captions with memory mapped feature arrays. The model and legacy modules implement the recurrent encoders, image projection, and optimizer conventions. The training module saves progress and checkpoints. The evaluation and retrieval modules rank images. The experiments module creates the comparison CSV and the required plots and retrieval examples.
 
-Three configuration files preserve different stages of the project:
+Four configuration files preserve the original project stages and the model extension:
 
-1. `config_author.yaml` is the final configuration used for the reported results and UI demo.
+1. `config_author.yaml` reproduces the five original paper methods and the original UI model.
 2. `config_reference.yaml` preserves the earlier run using the original feature archive.
 3. `config.yaml` preserves the earlier local feature extraction pipeline.
+4. `config_improved.yaml` trains and evaluates the new bidirectional model and the selected combination.
 
-Use `config_author.yaml` when reproducing the final delivered experiment. Its outputs and checkpoints are separate from the earlier runs.
+Use `config_author.yaml` for the original reproduction and `config_improved.yaml` for the authorized extension. Each run has separate output and checkpoint directories. IMPROVEMENT.md provides the extension training and validation selection commands.
 
 ## Environment setup
 
@@ -140,7 +179,7 @@ If GPU execution is required, follow the [official PyTorch installation instruct
 
 ## Run the UI on a prepared machine
 
-For the default UI, the following resources must be available at the paths expected by `config_author.yaml`:
+For the original model, the following resources must be available at the paths expected by `config_author.yaml`:
 
 ```text
 checkpoints/author/gru_glove_best.pt
@@ -148,6 +187,15 @@ data/paper_reference/manifests/test.jsonl
 data/paper_reference/data/coco/images/10crop/test.npy
 data/coco/val2014/
 ```
+
+The improved model uses the same gallery data. To enable it in the interface, also restore the completed combined checkpoint and its measured result:
+
+```text
+checkpoints/improved/ensemble_glove_best.pt
+outputs/improved/selected_comparison.json
+```
+
+These local resources can be transferred separately from this trained workspace or produced using the improvement commands in IMPROVEMENT.md. The combined checkpoint contains both encoders and their vocabulary. When the improvement resources are available, the interface selects the combined model by default. It also provides the original model option.
 
 Keep the complete test feature array and test manifest together in their verified order. The interface searches the first 1,000 images from that pair. The corresponding photographs must be present for those results to appear in the browser. The checkpoint stores its model parameters and vocabulary, so the GloVe text file is not needed for inference with that saved neural model.
 
@@ -161,10 +209,11 @@ Start the interface:
 
 Open [the local interface](http://127.0.0.1:8501/) in a browser on the same computer.
 
-1. Enter a short English description.
-2. Choose 3, 5, or 10 results.
-3. Click Search Images and wait for retrieval to finish.
-4. Inspect the ranked photographs, similarity scores, and dataset captions.
+1. Choose the improved combined model or the original GRU + GloVe.
+2. Enter a short English description.
+3. Choose 3, 5, or 10 results.
+4. Click Search Images and wait for retrieval to finish.
+5. Inspect the ranked photographs, similarity scores, and dataset captions.
 
 Useful example descriptions include:
 
@@ -184,7 +233,13 @@ The server must remain running for the page to work. Press Ctrl+C in its termina
 
 ## Terminal demonstration
 
-The same saved model can be demonstrated without the browser:
+The improved combined model can be demonstrated without the browser:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.retrieve --config config_improved.yaml --method ensemble_glove --query "a guy riding a bike next to a train" --top-k 5
+```
+
+The original GRU + GloVe remains available:
 
 ```powershell
 .\.venv\Scripts\python.exe -m src.retrieve --config config_author.yaml --method gru_glove --query "a guy riding a bike next to a train" --top-k 5
@@ -265,7 +320,7 @@ For an existing prepared test manifest where photographs are missing, the galler
 
 This helper supplies photographs for display. It does not create feature arrays, manifests, vocabulary, or trained checkpoints.
 
-## Model and training details
+## Original model and training details
 
 The neural models learn an image projection from 4,096 dimensional VGG features into a shared 1,024 dimensional space. GRU or LSTM encodes the caption into the same space. Both representations are normalized before ranking by negative squared Euclidean distance.
 
@@ -331,7 +386,7 @@ Evaluation consumes feature arrays and checkpoints. The retrieval figure step ad
 .\.venv\Scripts\python.exe -m src.experiments --config config_author.yaml --skip-examples
 ```
 
-## Measured final results
+## Original paper method results
 
 These measurements use the main 1,000 image and 1,000 query protocol. Recall values are percentages.
 
@@ -344,9 +399,9 @@ These measurements use the main 1,000 image and 1,000 query protocol. Recall val
 <tr><td>LSTM + GloVe</td><td>31.7%</td><td>83.1%</td><td>8.636</td></tr>
 </table>
 
-GRU and GRU + GloVe tie for the highest Recall@1. LSTM + GloVe has the highest Recall@10 and lowest mean rank in this protocol. Neural methods outperform the local baseline methods on these measurements. The weighted baseline improves on the ordinary baseline while using more caption information.
+Among the five original paper methods, GRU and GRU + GloVe tie for the highest Recall@1. LSTM + GloVe has the highest Recall@10 and lowest mean rank in that comparison. Neural methods outperform the local baseline methods on these measurements. The weighted baseline improves on the ordinary baseline while using more caption information.
 
-## Paper and released evaluator comparison
+## Original model and paper comparison
 
 The paper describes one caption per image, while its released evaluator ranks all five captions separately. The caption selection used for the original Table 1 is unspecified. To keep the two conventions clear, the project reports an additional neural evaluation with 1,000 images and 5,000 caption queries.
 
@@ -376,13 +431,14 @@ Run the pipeline and source fidelity tests:
 ```powershell
 .\.venv\Scripts\python.exe -m tests.smoke_test
 .\.venv\Scripts\python.exe -m tests.reference_test
+.\.venv\Scripts\python.exe -m unittest tests.improved_test
 ```
 
 The smoke test exercises synthetic data loading, baseline fitting, neural training, resumption, checkpoint loading, evaluation, and retrieval. Source fidelity tests compare recurrent equations and Adam updates with independent NumPy calculations, check gradients and normalization, exercise padding, and verify generator batch counts and gallery boundaries. Synthetic test results establish execution correctness rather than COCO accuracy.
 
 Final verification also checked that all 150 neural epoch records had complete updates and finite losses, every validation epoch used exactly 1,000 images and 5,000 queries, and saved model tensors were finite. Main test measurements were independently recomputed from the checkpoints. The supplementary evaluator's ranks were checked against the authors' unchanged evaluator for the saved GRU + GloVe model. Retrieval paths and example rankings were also checked.
 
-The PDF and all ten presentation slides were rendered and visually inspected. The final write up has two pages with black text, and the presentation uses white backgrounds. Both contain measured final results.
+The delivered write up has two well filled pages with black text, and the presentation has fourteen slides with white backgrounds. Both include the original measurements and the completed improvement experiment. Both artifacts were rendered and visually checked, and all reported scores were checked against the measured records. The document review checks are recorded in VERIFICATION.md.
 
 ## Local outputs and checkpoints
 
@@ -466,3 +522,5 @@ If the page is unavailable, confirm that the Streamlit server is running and tha
 The methodology follows Qian and Lamberti's CS229 Neural Caption Image Retrieval project and its [released repository](https://github.com/giacomolamberti90/CS229_project). The source comparison used author commit `181baae2a01dc747c8bd47de913a9e35830f1477`.
 
 The project uses COCO 2014, the Karpathy split, VGG 19 image features, and GloVe word vectors. The original feature archive and original author implementation are external resources. The local Streamlit interface is an added demonstration interface for the existing retrieval workflow.
+
+The separate improvement experiment uses a bidirectional GRU, a contrastive objective and a hardest negative term inspired by [VSE++](https://arxiv.org/abs/1707.05612). IMPROVEMENT.md records the architecture, training settings, validation selection and measured comparison.

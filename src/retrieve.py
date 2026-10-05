@@ -72,7 +72,7 @@ def retrieve(cfg: dict, method: str, checkpoint: Path, query: str,
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config.yaml")
-    parser.add_argument("--method", choices=["baseline", "gru", "gru_glove", "lstm_glove"], required=True)
+    parser.add_argument("--method", choices=["baseline", "gru", "gru_glove", "lstm_glove", "bigru_glove", "ensemble_glove"], required=True)
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--query", required=True)
     parser.add_argument("--split", choices=["val", "test"], default="test")

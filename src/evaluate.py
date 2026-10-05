@@ -15,25 +15,44 @@ from .model import RetrievalModel, similarity_matrix
 from .preprocessing import encode_caption, load_vocab, tokenize
 
 
-def load_neural_checkpoint(path: Path, device: torch.device) -> tuple[RetrievalModel, dict, str]:
+def model_from_definition(checkpoint: dict) -> torch.nn.Module:
+    """Instantiate an encoder definition without changing historical checkpoints."""
+    if checkpoint.get("model_type") == "bidirectional_gru":
+        from .improved_model import BidirectionalRetrievalModel
+        model = BidirectionalRetrievalModel(
+            len(checkpoint["vocab"]), checkpoint["image_feature_dim"],
+            checkpoint["word_dim"], checkpoint["embedding_dim"],
+            **checkpoint["model_options"])
+    elif checkpoint.get("model_type") == "validation_ensemble":
+        from .improved_model import ValidationEnsemble
+        model = ValidationEnsemble(
+            model_from_definition(checkpoint["original_definition"]),
+            model_from_definition(checkpoint["candidate_definition"]),
+            checkpoint["original_weight"])
+    else:
+        model = RetrievalModel(
+            vocab_size=len(checkpoint["vocab"]),
+            image_feature_dim=checkpoint["image_feature_dim"],
+            word_dim=checkpoint["word_dim"],
+            embedding_dim=checkpoint["embedding_dim"],
+            recurrent_type=checkpoint["recurrent_type"],
+            **checkpoint.get("model_options", {}),
+        )
+    return model
+
+
+def load_neural_checkpoint(path: Path, device: torch.device) -> tuple[torch.nn.Module, dict, str]:
     if not path.exists():
         raise FileNotFoundError(f"Checkpoint missing: {path}. Run python -m src.train first.")
     checkpoint = torch.load(path, map_location=device, weights_only=False)
-    model = RetrievalModel(
-        vocab_size=len(checkpoint["vocab"]),
-        image_feature_dim=checkpoint["image_feature_dim"],
-        word_dim=checkpoint["word_dim"],
-        embedding_dim=checkpoint["embedding_dim"],
-        recurrent_type=checkpoint["recurrent_type"],
-        **checkpoint.get("model_options", {}),
-    )
+    model = model_from_definition(checkpoint)
     model.load_state_dict(checkpoint["model"])
     model.to(device).eval()
     return model, checkpoint["vocab"], checkpoint["variant"]
 
 
 def neural_embeddings(
-    model: RetrievalModel, dataset: CaptionFeatureDataset, image_count: int,
+    model: torch.nn.Module, dataset: CaptionFeatureDataset, image_count: int,
     device: torch.device, batch_size: int = 128,
     captions_per_image: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor, list[int], list[str]]:
@@ -105,12 +124,12 @@ def summarize_ranks(ranks: list[int], captions: list[str], image_count: int) -> 
 
 def evaluate_method(
     cfg: dict, split: str, method: str, checkpoint: Path, max_images: int = 1000,
-    model: RetrievalModel | None = None, vocab: dict[str, int] | None = None,
+    model: torch.nn.Module | None = None, vocab: dict[str, int] | None = None,
     captions_per_image: int = 1,
 ) -> dict:
     if split not in {"val", "test"}:
         raise ValueError("Evaluation is restricted to validation and test splits")
-    if method not in {"baseline", "baseline_weighted", "gru", "gru_glove", "lstm_glove"}:
+    if method not in {"baseline", "baseline_weighted", "gru", "gru_glove", "lstm_glove", "bigru_glove", "ensemble_glove"}:
         raise ValueError(f"Unknown method: {method}")
     if method.startswith("baseline") and captions_per_image != 1:
         raise ValueError("Five separate caption evaluation is restricted to neural methods")
@@ -163,7 +182,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config.yaml")
     parser.add_argument("--split", choices=["val", "test"], default="test")
-    parser.add_argument("--method", choices=["baseline", "baseline_weighted", "gru", "gru_glove", "lstm_glove"], required=True)
+    parser.add_argument("--method", choices=["baseline", "baseline_weighted", "gru", "gru_glove", "lstm_glove", "bigru_glove", "ensemble_glove"], required=True)
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--max-images", type=int, default=1000)
     parser.add_argument("--output", default=None)

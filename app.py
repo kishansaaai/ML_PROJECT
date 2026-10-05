@@ -29,13 +29,26 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 st.title("🔎 Neural Caption-Based Image Retrieval")
 
+model_options = {
+    "Original GRU + GloVe": ("config_author.yaml", "gru_glove", "GRU + GloVe", "1,024")
+}
+improvement_report = PROJECT_ROOT / "outputs" / "improved" / "selected_comparison.json"
+improvement_checkpoint = PROJECT_ROOT / "checkpoints" / "improved" / "ensemble_glove_best.pt"
+if improvement_report.is_file() and improvement_checkpoint.is_file():
+    model_options = {
+        "Improved combined model": ("config_improved.yaml", "ensemble_glove", "GRU + BiGRU + GloVe", "2,048"),
+        **model_options
+    }
+selected_model = st.selectbox("Retrieval model", list(model_options))
+model_config, model_method, model_label, model_dimensions = model_options[selected_model]
+
 st.markdown(
-    """
+    f"""
     **Search a COCO image gallery using natural language.**
 
     Enter a description of the image you are looking for and
-    the trained **GRU + GloVe** model will retrieve the most
-    semantically similar images.
+    the trained **{model_label}** model will rank the gallery images
+    by how closely they match your description.
     """
 )
 
@@ -83,9 +96,9 @@ if st.button("🔍 Search Images", use_container_width=True):
     "-m",
     "src.retrieve",
     "--config",
-    "config_author.yaml",
+    model_config,
     "--method",
-    "gru_glove",
+    model_method,
     "--query",
     query,
     "--top-k",
@@ -197,13 +210,13 @@ st.subheader("Model Information")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("Model", "GRU + GloVe")
+    st.metric("Model", model_label)
 
 with col2:
     st.metric("Gallery", "1,000 Images")
 
 with col3:
-    st.metric("Embedding", "1,024-D")
+    st.metric("Embedding", model_dimensions)
 
 with col4:
     st.metric("Dataset", "COCO 2014")
